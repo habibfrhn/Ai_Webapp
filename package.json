@@ -1,0 +1,10 @@
+{
+  "name": "ai_webapp_root",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently \"yarn --cwd client dev\" \"yarn --cwd backend dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0"
+  }
+}
