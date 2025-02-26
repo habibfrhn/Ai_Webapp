@@ -26,7 +26,7 @@ interface InvoiceData {
           <img 
             src="${invoiceImageUrl}" 
             alt="Invoice Image" 
-            style="max-width: 100%; max-height: 500px;" 
+            style="max-width: 100%; max-height: 500px;"
           />
         </div>
   
@@ -55,12 +55,12 @@ interface InvoiceData {
               />
             </div>
   
+            <!-- Decrease height to 3rem so it's not too big -->
             <div>
               <label style="display: block; font-weight: bold;">Alamat Pembeli</label>
-              <!-- Use a textarea for multi-line address -->
               <textarea 
                 name="buyerAddress" 
-                style="width: 100%; height: 5rem; resize: vertical;"
+                style="width: 100%; height: 3rem; resize: vertical;"
               >${extractedData.buyerAddress || ''}</textarea>
             </div>
   
@@ -95,22 +95,28 @@ interface InvoiceData {
             </div>
   
             <div>
-              <label style="display: block; font-weight: bold;">Tanggal Faktur</label>
+              <label style="display: block; font-weight: bold;">Tanggal Faktur (dd/mm/yyyy)</label>
               <input 
                 type="text" 
                 name="invoiceDate" 
                 value="${extractedData.invoiceDate || ''}"
                 style="width: 100%;"
+                placeholder="dd/mm/yyyy"
+                pattern="^\\d{2}/\\d{2}/\\d{4}$"
+                title="Use the format dd/mm/yyyy"
               />
             </div>
   
             <div>
-              <label style="display: block; font-weight: bold;">Tanggal Jatuh Tempo Faktur</label>
+              <label style="display: block; font-weight: bold;">Tanggal Jatuh Tempo Faktur (dd/mm/yyyy)</label>
               <input 
                 type="text" 
                 name="dueDate" 
                 value="${extractedData.dueDate || ''}"
                 style="width: 100%;"
+                placeholder="dd/mm/yyyy"
+                pattern="^\\d{2}/\\d{2}/\\d{4}$"
+                title="Use the format dd/mm/yyyy"
               />
             </div>
   
@@ -146,6 +152,11 @@ interface InvoiceData {
     form?.addEventListener('submit', (e) => {
       e.preventDefault();
   
+      if (!form.checkValidity()) {
+        alert('Please ensure dates use dd/mm/yyyy format.');
+        return;
+      }
+  
       const formData = new FormData(form);
       const updatedInvoice: InvoiceData = {
         sellerName: formData.get('sellerName')?.toString(),
@@ -161,7 +172,6 @@ interface InvoiceData {
       };
   
       console.log('Updated Invoice Data:', updatedInvoice);
-      // Optional: fetch('/api/invoice/save', { method: 'POST', body: JSON.stringify(updatedInvoice) })
     });
   }
   

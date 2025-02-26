@@ -27,7 +27,7 @@ Below is the OCR text of an invoice. Return only JSON (no code blocks or extra t
 - Nomor faktur
 - Tanggal faktur (dd/mm/yyyy only)
 - Tanggal jatuh tempo faktur (dd/mm/yyyy only)
-- Rincian pajak (PPN)
+- Rincian pajak (PPN or VAt or Sales Tax or similar terms) as a percentage only (e.g., "10%")
 - Total jumlah pembayaran
 
 If a field is missing, set it to null. Do not add disclaimers or additional commentary. 
