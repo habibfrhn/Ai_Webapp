@@ -1,7 +1,7 @@
 // ===============================
 // backend/src/invoiceProcessor.ts (FULL UPDATED CODE)
 // ===============================
-import { extractTextFromImage } from './textract';
+import { extractTextFromImage } from './tesseract';
 import { callDeepSeek } from './artificialBrain';
 
 // A small helper to remove any triple-backtick code fences
