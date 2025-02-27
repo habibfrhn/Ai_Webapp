@@ -5,16 +5,15 @@ import * as fs from 'fs';
 import path from 'path';
 
 const textractClient = new TextractClient({
-  region: process.env.AWS_REGION || 'eu-central-1',
+  region: process.env.AWS_REGION as string,
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID as string,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY as string
   },
 });
 
 /**
  * Extract text (and blocks) from an invoice image using AWS Textract.
- * - Make sure to include `export` so other files can import it.
  */
 export async function extractTextFromImage(filePath: string): Promise<{
   rawText: string;
@@ -31,7 +30,6 @@ export async function extractTextFromImage(filePath: string): Promise<{
 
   const response = await textractClient.send(command);
 
-  // Build raw text
   const blocks = response.Blocks || [];
   let rawText = '';
 
@@ -42,6 +40,8 @@ export async function extractTextFromImage(filePath: string): Promise<{
   }
 
   console.log('[TEXTRACT] OCR extraction complete. Raw text length:', rawText.length);
+  // Log the extracted text
+  console.log('[TEXTRACT] OCR extracted text:\n', rawText);
 
   return {
     rawText,

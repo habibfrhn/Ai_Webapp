@@ -1,7 +1,8 @@
-// backend/src/invoiceProcessor.ts
-
+// ===============================
+// backend/src/invoiceProcessor.ts (FULL UPDATED CODE)
+// ===============================
 import { extractTextFromImage } from './textract';
-import { sendToDeepSeek } from './artificialBrain';
+import { callDeepSeek } from './artificialBrain';
 
 // A small helper to remove any triple-backtick code fences
 function stripCodeBlocks(text: string): string {
@@ -15,15 +16,42 @@ export async function processInvoiceImage(filePath: string) {
     const { rawText } = await extractTextFromImage(filePath);
     console.log('[PROCESSOR] OCR rawText length:', rawText.length);
 
-    // 1) Send the text to DeepSeek
-    const deepseekResult = await sendToDeepSeek(rawText);
+    // CHANGED: Update the prompt so DeepSeek returns the same keys your front-end expects.
+    const deepseekPrompt = `
+Below is the OCR text of an invoice. Return only JSON (no code blocks) with these exact keys:
+
+{
+  "sellerName": ...,
+  "buyerName": ...,
+  "buyerAddress": ...,
+  "buyerPhone": ...,
+  "buyerEmail": ...,
+  "invoiceNumber": ...,
+  "invoiceDate": ...,
+  "dueDate": ...,
+  "taxDetails": ...,
+  "totalAmount": ...
+}
+
+If a field is missing, set it to null. 
+For "invoiceDate" and "dueDate," use dd/mm/yyyy only. 
+"taxDetails" should be a percentage only (e.g., "10%").
+
+Do not add disclaimers or extra text. Just valid JSON.
+
+OCR TEXT:
+${rawText}
+`;
+
+    console.log('[PROCESSOR] Sending prompt to DeepSeek...');
+    const deepseekResult = await callDeepSeek(deepseekPrompt);
 
     console.log('[PROCESSOR] Raw DeepSeek output:', deepseekResult);
 
-    // 2) Remove any code fences if the model still includes them
+    // Remove code fences if present
     const cleaned = stripCodeBlocks(deepseekResult);
 
-    // 3) Try to parse JSON
+    // Try to parse JSON
     let parsedData;
     try {
       parsedData = JSON.parse(cleaned);

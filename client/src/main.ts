@@ -1,25 +1,18 @@
-// client/src/main.ts
-
+// ===============================
+// client/src/main.ts (FULL UPDATED CODE)
+// ===============================
 import { renderLayout } from './layout';
 import { renderHomeScreen } from './screens/homeScreen';
 import { renderUploadScreen } from './screens/uploadScreen';
 import { renderListScreen } from './screens/listScreen';
-import { renderEditInvoiceScreen } from './screens/editInvoiceScreen';
+import { renderLoginScreen } from './screens/logInScreen';
+import { renderRegisterScreen } from './screens/registerScreen';
+import { renderEditInvoiceScreen } from './screens/editInvoiceScreen'; // NEW import
 
-// Map the keys from DeepSeek to the interface in editInvoiceScreen
-function mapDeepSeekToInvoiceData(deepSeekData: any) {
-  return {
-    sellerName: deepSeekData['Nama penjual/perusahaan'] ?? '',
-    buyerName: deepSeekData['Nama pembeli'] ?? '',
-    buyerAddress: deepSeekData['Alamat pembeli'] ?? '',
-    buyerPhone: deepSeekData['Nomor telefon pembeli'] ?? '',
-    buyerEmail: deepSeekData['Email pembeli'] ?? '',
-    invoiceNumber: deepSeekData['Nomor faktur'] ?? '',
-    invoiceDate: deepSeekData['Tanggal faktur'] ?? '',
-    dueDate: deepSeekData['Tanggal jatuh tempo faktur'] ?? '',
-    taxDetails: deepSeekData['Rincian pajak (PPN)'] ?? '',
-    totalAmount: deepSeekData['Total jumlah pembayaran'] ?? '',
-  };
+// Check if user has a token in localStorage
+function isLoggedIn(): boolean {
+  const token = localStorage.getItem('token');
+  return !!token; // true if token exists
 }
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
@@ -30,22 +23,27 @@ function router() {
   const hash = window.location.hash || '#/';
   const mainArea = document.querySelector<HTMLDivElement>('#main-area')!;
 
+  // Force user to /login or /register if not logged in
+  if (!isLoggedIn() && hash !== '#/login' && hash !== '#/register') {
+    window.location.hash = '#/login';
+    return;
+  }
+
   if (hash === '#/') {
     renderHomeScreen(mainArea);
   } else if (hash === '#/upload') {
-    // Callback now receives (extractedData, fileName)
-    renderUploadScreen(mainArea, (extractedData: any, fileName: string) => {
-      console.log('Upload success, raw deepseek data:', extractedData);
-
-      // Convert the keys
-      const invoiceData = mapDeepSeekToInvoiceData(extractedData);
-
-      // Construct image URL
+    // CHANGED: handle the callback to automatically show editInvoiceScreen
+    renderUploadScreen(mainArea, (extractedData, fileName) => {
+      console.log('Upload success, extracted data:', extractedData);
       const imageUrl = `http://localhost:3000/uploads/${fileName}`;
-      renderEditInvoiceScreen(mainArea, imageUrl, invoiceData);
+      renderEditInvoiceScreen(mainArea, imageUrl, extractedData);
     });
   } else if (hash === '#/invoices') {
     renderListScreen(mainArea);
+  } else if (hash === '#/login') {
+    renderLoginScreen(mainArea);
+  } else if (hash === '#/register') {
+    renderRegisterScreen(mainArea);
   } else {
     mainArea.innerHTML = '<h1>404 - Page Not Found</h1>';
   }
