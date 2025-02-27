@@ -1,5 +1,5 @@
 // ===============================
-// backend/src/database/mongoose.ts (FULL UPDATED CODE WITH LOGS)
+// backend/src/database/mongoose.ts (FULL UPDATED CODE)
 // ===============================
 import 'dotenv/config';
 import mongoose from 'mongoose';

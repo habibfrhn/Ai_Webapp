@@ -6,7 +6,7 @@ import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import path from 'path';
-import { connectDB } from '../src/database/mongoose'; // Adjust path if needed
+import { connectDB } from '../src/database/mongoose';
 import authRoutes from '../src/authentication/authRoutes';
 import { processInvoiceImage } from '../src/invoiceProcessor';
 
