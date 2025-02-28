@@ -1,24 +1,26 @@
 // client/src/editInvoiceScreen.ts
 
 interface InvoiceData {
-    sellerName?: string;
-    buyerName?: string;
-    buyerAddress?: string;
-    buyerPhone?: string;
-    buyerEmail?: string;
-    invoiceNumber?: string;
-    invoiceDate?: string;
-    dueDate?: string;
-    taxDetails?: string;
-    totalAmount?: string;
-  }
-  
-  export function renderEditInvoiceScreen(
-    container: HTMLElement,
-    invoiceImageUrl: string,
-    extractedData: InvoiceData
-  ) {
-    container.innerHTML = `
+  sellerName?: string;
+  buyerName?: string;
+  buyerAddress?: string;
+  buyerPhone?: string;
+  buyerEmail?: string;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  dueDate?: string;
+  taxDetails?: string;
+  totalAmount?: string;
+  invoiceType?: string;
+}
+
+export function renderEditInvoiceScreen(
+  container: HTMLElement,
+  invoiceImageUrl: string,
+  extractedData: InvoiceData,
+  fileName: string // Added fileName parameter
+) {
+  container.innerHTML = `
       <div style="display: flex; height: 100%;">
         <!-- Left side: Invoice Preview -->
         <div style="flex: 1; border-right: 1px solid #ccc; padding: 1rem;">
@@ -55,7 +57,6 @@ interface InvoiceData {
               />
             </div>
   
-            <!-- Decrease height to 3rem so it's not too big -->
             <div>
               <label style="display: block; font-weight: bold;">Alamat Pembeli</label>
               <textarea 
@@ -140,6 +141,16 @@ interface InvoiceData {
               />
             </div>
   
+            <div>
+              <label style="display: block; font-weight: bold;">Tipe Faktur</label>
+              <select name="invoiceType" style="width: 100%;">
+                <option value="Faktur masuk" ${extractedData.invoiceType === 'Faktur masuk' ? 'selected' : ''}>Faktur masuk</option>
+                <option value="Faktur keluar" ${extractedData.invoiceType === 'Faktur keluar' ? 'selected' : ''}>Faktur keluar</option>
+              </select>
+            </div>
+  
+            <input type="hidden" name="fileName" value="${fileName}" />
+  
             <button type="submit" style="align-self: flex-start; padding: 0.5rem 1rem;">
               Save Invoice
             </button>
@@ -148,30 +159,52 @@ interface InvoiceData {
       </div>
     `;
   
-    const form = container.querySelector<HTMLFormElement>('#invoiceForm');
-    form?.addEventListener('submit', (e) => {
-      e.preventDefault();
+  const form = container.querySelector<HTMLFormElement>('#invoiceForm');
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
   
-      if (!form.checkValidity()) {
-        alert('Please ensure dates use dd/mm/yyyy format.');
-        return;
+    if (!form.checkValidity()) {
+      alert('Please ensure dates use dd/mm/yyyy format.');
+      return;
+    }
+  
+    const formData = new FormData(form);
+    const updatedInvoice: InvoiceData = {
+      sellerName: formData.get('sellerName')?.toString(),
+      buyerName: formData.get('buyerName')?.toString(),
+      buyerAddress: formData.get('buyerAddress')?.toString(),
+      buyerPhone: formData.get('buyerPhone')?.toString(),
+      buyerEmail: formData.get('buyerEmail')?.toString(),
+      invoiceNumber: formData.get('invoiceNumber')?.toString(),
+      invoiceDate: formData.get('invoiceDate')?.toString(),
+      dueDate: formData.get('dueDate')?.toString(),
+      taxDetails: formData.get('taxDetails')?.toString(),
+      totalAmount: formData.get('totalAmount')?.toString(),
+      invoiceType: formData.get('invoiceType')?.toString(),
+    };
+  
+    // Send updated invoice data to the backend.
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3000/api/invoice/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...updatedInvoice,
+          fileName: formData.get('fileName')?.toString(),
+        }),
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert('Invoice saved successfully.');
+      } else {
+        alert(`Error: ${result.message}`);
       }
-  
-      const formData = new FormData(form);
-      const updatedInvoice: InvoiceData = {
-        sellerName: formData.get('sellerName')?.toString(),
-        buyerName: formData.get('buyerName')?.toString(),
-        buyerAddress: formData.get('buyerAddress')?.toString(),
-        buyerPhone: formData.get('buyerPhone')?.toString(),
-        buyerEmail: formData.get('buyerEmail')?.toString(),
-        invoiceNumber: formData.get('invoiceNumber')?.toString(),
-        invoiceDate: formData.get('invoiceDate')?.toString(),
-        dueDate: formData.get('dueDate')?.toString(),
-        taxDetails: formData.get('taxDetails')?.toString(),
-        totalAmount: formData.get('totalAmount')?.toString(),
-      };
-  
-      console.log('Updated Invoice Data:', updatedInvoice);
-    });
-  }
-  
+    } catch (err: any) {
+      alert(`Failed to save invoice: ${err.message}`);
+    }
+  });
+}

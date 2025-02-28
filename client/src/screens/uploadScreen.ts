@@ -1,3 +1,4 @@
+// client/src/uploadScreen.ts
 export function renderUploadScreen(
   container: HTMLElement,
   onSuccess: (extractedData: any, fileName: string) => void
@@ -31,8 +32,13 @@ export function renderUploadScreen(
     formData.append('invoiceImage', file);
 
     try {
+      // Get the token from localStorage (set upon login)
+      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:3000/api/invoice/upload', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
         body: formData,
       });
 

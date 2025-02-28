@@ -1,6 +1,4 @@
-// ===============================
-// client/src/main.ts (FULL UPDATED CODE)
-// ===============================
+// client/src/main.ts
 import { renderLayout } from './layout';
 import { renderHomeScreen } from './screens/homeScreen';
 import { renderUploadScreen } from './screens/uploadScreen';
@@ -11,7 +9,6 @@ import { renderEditInvoiceScreen } from './screens/editInvoiceScreen'; // NEW im
 
 /**
  * Checks whether the token exists.
- * (We now rely on a sliding refresh mechanism to keep token valid)
  */
 function hasToken(): boolean {
   return !!localStorage.getItem('token');
@@ -19,8 +16,6 @@ function hasToken(): boolean {
 
 /**
  * Calls the backend refresh endpoint.
- * If successful, a new token (with 8h expiration) is stored.
- * If not, the user is logged out.
  */
 async function refreshToken() {
   const token = localStorage.getItem('token');
@@ -28,10 +23,10 @@ async function refreshToken() {
   try {
     const response = await fetch('http://localhost:3000/api/auth/refresh', {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
+        'Authorization': `Bearer ${token}`,
+      },
     });
     const data = await response.json();
     if (response.ok && data.token) {
@@ -59,18 +54,17 @@ app.appendChild(layout);
 
 /**
  * The router refreshes the token on each route change.
- * Also, if the token is missing or invalid, the user is redirected to login.
  */
 async function router() {
   const hash = window.location.hash || '#/';
   const mainArea = document.querySelector<HTMLDivElement>('#main-area')!;
-  
-  // If user has a token, refresh it to reset the expiration countdown.
+
+  // Refresh token if user is logged in.
   if (isLoggedIn()) {
     await refreshToken();
   }
-  
-  // Force user to /login or /register if not logged in.
+
+  // Redirect to login/register if not logged in.
   if (!isLoggedIn() && hash !== '#/login' && hash !== '#/register') {
     window.location.hash = '#/login';
     return;
@@ -82,7 +76,8 @@ async function router() {
     renderUploadScreen(mainArea, (extractedData, fileName) => {
       console.log('Upload success, extracted data:', extractedData);
       const imageUrl = `http://localhost:3000/uploads/${fileName}`;
-      renderEditInvoiceScreen(mainArea, imageUrl, extractedData);
+      // Pass fileName as the 4th argument to editInvoiceScreen.
+      renderEditInvoiceScreen(mainArea, imageUrl, extractedData, fileName);
     });
   } else if (hash === '#/invoices') {
     renderListScreen(mainArea);
@@ -95,7 +90,7 @@ async function router() {
   }
 }
 
-// Refresh token periodically (e.g., every 5 minutes) while the app is open.
+// Refresh token periodically.
 setInterval(() => {
   if (isLoggedIn()) {
     refreshToken();
