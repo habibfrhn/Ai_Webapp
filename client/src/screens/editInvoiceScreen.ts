@@ -1,4 +1,4 @@
-// client/src/editInvoiceScreen.ts
+// client/src/screens/editInvoiceScreen.ts
 
 interface InvoiceData {
   sellerName?: string;
@@ -18,156 +18,158 @@ export function renderEditInvoiceScreen(
   container: HTMLElement,
   invoiceImageUrl: string,
   extractedData: InvoiceData,
-  fileName: string // Added fileName parameter
+  fileName: string
 ) {
   container.innerHTML = `
-      <div style="display: flex; height: 100%;">
-        <!-- Left side: Invoice Preview -->
-        <div style="flex: 1; border-right: 1px solid #ccc; padding: 1rem;">
-          <h2>Invoice Preview</h2>
-          <img 
-            src="${invoiceImageUrl}" 
-            alt="Invoice Image" 
-            style="max-width: 100%; max-height: 500px;"
-          />
-        </div>
-  
-        <!-- Right side: Edit Invoice Data -->
-        <div style="flex: 1; padding: 1rem;">
-          <h2>Edit Invoice Data</h2>
-          <form id="invoiceForm" style="display: flex; flex-direction: column; gap: 1rem;">
-  
-            <div>
-              <label style="display: block; font-weight: bold;">Nama Penjual/Perusahaan</label>
-              <input 
-                type="text" 
-                name="sellerName" 
-                value="${extractedData.sellerName || ''}"
-                style="width: 100%;"
-              />
-            </div>
-  
-            <div>
-              <label style="display: block; font-weight: bold;">Nama Pembeli</label>
-              <input 
-                type="text" 
-                name="buyerName" 
-                value="${extractedData.buyerName || ''}"
-                style="width: 100%;"
-              />
-            </div>
-  
-            <div>
-              <label style="display: block; font-weight: bold;">Alamat Pembeli</label>
-              <textarea 
-                name="buyerAddress" 
-                style="width: 100%; height: 3rem; resize: vertical;"
-              >${extractedData.buyerAddress || ''}</textarea>
-            </div>
-  
-            <div>
-              <label style="display: block; font-weight: bold;">Nomor Telefon Pembeli</label>
-              <input 
-                type="text" 
-                name="buyerPhone" 
-                value="${extractedData.buyerPhone || ''}"
-                style="width: 100%;"
-              />
-            </div>
-  
-            <div>
-              <label style="display: block; font-weight: bold;">Email Pembeli</label>
-              <input 
-                type="text" 
-                name="buyerEmail" 
-                value="${extractedData.buyerEmail || ''}"
-                style="width: 100%;"
-              />
-            </div>
-  
-            <div>
-              <label style="display: block; font-weight: bold;">Nomor Faktur</label>
-              <input 
-                type="text" 
-                name="invoiceNumber" 
-                value="${extractedData.invoiceNumber || ''}"
-                style="width: 100%;"
-              />
-            </div>
-  
-            <div>
-              <label style="display: block; font-weight: bold;">Tanggal Faktur (dd/mm/yyyy)</label>
-              <input 
-                type="text" 
-                name="invoiceDate" 
-                value="${extractedData.invoiceDate || ''}"
-                style="width: 100%;"
-                placeholder="dd/mm/yyyy"
-                pattern="^\\d{2}/\\d{2}/\\d{4}$"
-                title="Use the format dd/mm/yyyy"
-              />
-            </div>
-  
-            <div>
-              <label style="display: block; font-weight: bold;">Tanggal Jatuh Tempo Faktur (dd/mm/yyyy)</label>
-              <input 
-                type="text" 
-                name="dueDate" 
-                value="${extractedData.dueDate || ''}"
-                style="width: 100%;"
-                placeholder="dd/mm/yyyy"
-                pattern="^\\d{2}/\\d{2}/\\d{4}$"
-                title="Use the format dd/mm/yyyy"
-              />
-            </div>
-  
-            <div>
-              <label style="display: block; font-weight: bold;">Rincian Pajak (PPN)</label>
-              <input 
-                type="text" 
-                name="taxDetails" 
-                value="${extractedData.taxDetails || ''}"
-                style="width: 100%;"
-              />
-            </div>
-  
-            <div>
-              <label style="display: block; font-weight: bold;">Total Jumlah Pembayaran</label>
-              <input 
-                type="text" 
-                name="totalAmount" 
-                value="${extractedData.totalAmount || ''}"
-                style="width: 100%;"
-              />
-            </div>
-  
-            <div>
-              <label style="display: block; font-weight: bold;">Tipe Faktur</label>
-              <select name="invoiceType" style="width: 100%;">
-                <option value="Faktur masuk" ${extractedData.invoiceType === 'Faktur masuk' ? 'selected' : ''}>Faktur masuk</option>
-                <option value="Faktur keluar" ${extractedData.invoiceType === 'Faktur keluar' ? 'selected' : ''}>Faktur keluar</option>
-              </select>
-            </div>
-  
-            <input type="hidden" name="fileName" value="${fileName}" />
-  
-            <button type="submit" style="align-self: flex-start; padding: 0.5rem 1rem;">
-              Save Invoice
-            </button>
-          </form>
-        </div>
+    <div style="display: flex; height: 100%;">
+      <!-- Left side: Invoice Preview -->
+      <div style="flex: 1; border-right: 1px solid #ccc; padding: 1rem;">
+        <h2>Invoice Preview</h2>
+        <img 
+          src="${invoiceImageUrl}" 
+          alt="Invoice Image" 
+          style="max-width: 100%; max-height: 500px;"
+        />
       </div>
-    `;
-  
+
+      <!-- Right side: Edit Invoice Data -->
+      <div style="flex: 1; padding: 1rem;">
+        <h2>Edit Invoice Data</h2>
+        <form id="invoiceForm" style="display: flex; flex-direction: column; gap: 1rem;">
+          <div>
+            <label style="display: block; font-weight: bold;">Nama Penjual/Perusahaan</label>
+            <input 
+              type="text" 
+              name="sellerName" 
+              value="${extractedData.sellerName || ''}"
+              style="width: 100%;"
+            />
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: bold;">Nama Pembeli</label>
+            <input 
+              type="text" 
+              name="buyerName" 
+              value="${extractedData.buyerName || ''}"
+              style="width: 100%;"
+            />
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: bold;">Alamat Pembeli</label>
+            <textarea 
+              name="buyerAddress" 
+              style="width: 100%; height: 3rem; resize: vertical;"
+            >${extractedData.buyerAddress || ''}</textarea>
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: bold;">Nomor Telefon Pembeli</label>
+            <input 
+              type="text" 
+              name="buyerPhone" 
+              value="${extractedData.buyerPhone || ''}"
+              style="width: 100%;"
+            />
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: bold;">Email Pembeli</label>
+            <input 
+              type="text" 
+              name="buyerEmail" 
+              value="${extractedData.buyerEmail || ''}"
+              style="width: 100%;"
+            />
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: bold;">Nomor Faktur</label>
+            <input 
+              type="text" 
+              name="invoiceNumber" 
+              value="${extractedData.invoiceNumber || ''}"
+              style="width: 100%;"
+            />
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: bold;">Tanggal Faktur (dd/mm/yyyy)</label>
+            <input 
+              type="text" 
+              name="invoiceDate" 
+              value="${extractedData.invoiceDate || ''}"
+              style="width: 100%;"
+              placeholder="dd/mm/yyyy"
+              pattern="^\\d{2}/\\d{2}/\\d{4}$"
+              title="Use the format dd/mm/yyyy"
+            />
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: bold;">Tanggal Jatuh Tempo Faktur (dd/mm/yyyy)</label>
+            <input 
+              type="text" 
+              name="dueDate" 
+              value="${extractedData.dueDate || ''}"
+              style="width: 100%;"
+              placeholder="dd/mm/yyyy"
+              pattern="^\\d{2}/\\d{2}/\\d{4}$"
+              title="Use the format dd/mm/yyyy"
+            />
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: bold;">Rincian Pajak (PPN)</label>
+            <input 
+              type="text" 
+              name="taxDetails" 
+              value="${extractedData.taxDetails || ''}"
+              style="width: 100%;"
+            />
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: bold;">Total Jumlah Pembayaran</label>
+            <input 
+              type="text" 
+              name="totalAmount" 
+              value="${extractedData.totalAmount || ''}"
+              style="width: 100%;"
+            />
+          </div>
+
+          <div>
+            <label style="display: block; font-weight: bold;">Tipe Faktur</label>
+            <select name="invoiceType" style="width: 100%;">
+              <option value="Faktur masuk" ${extractedData.invoiceType === 'Faktur masuk' ? 'selected' : ''}>Faktur masuk</option>
+              <option value="Faktur keluar" ${extractedData.invoiceType === 'Faktur keluar' ? 'selected' : ''}>Faktur keluar</option>
+            </select>
+          </div>
+
+          <input type="hidden" name="fileName" value="${fileName}" />
+
+          <div style="display: flex; gap: 1rem;">
+            <button type="submit" style="padding: 0.5rem 1rem;">Save Invoice</button>
+            <button type="button" id="cancelBtn" style="padding: 0.5rem 1rem; background-color: #ccc; border: none; cursor: pointer;">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
   const form = container.querySelector<HTMLFormElement>('#invoiceForm');
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
-  
+
     if (!form.checkValidity()) {
       alert('Please ensure dates use dd/mm/yyyy format.');
       return;
     }
-  
+
     const formData = new FormData(form);
     const updatedInvoice: InvoiceData = {
       sellerName: formData.get('sellerName')?.toString(),
@@ -182,7 +184,7 @@ export function renderEditInvoiceScreen(
       totalAmount: formData.get('totalAmount')?.toString(),
       invoiceType: formData.get('invoiceType')?.toString(),
     };
-  
+
     // Send updated invoice data to the backend.
     try {
       const token = localStorage.getItem('token');
@@ -206,5 +208,12 @@ export function renderEditInvoiceScreen(
     } catch (err: any) {
       alert(`Failed to save invoice: ${err.message}`);
     }
+  });
+
+  // Add event listener to the cancel button.
+  const cancelBtn = container.querySelector<HTMLButtonElement>('#cancelBtn');
+  cancelBtn?.addEventListener('click', () => {
+    // Navigate back to the invoices list (or previous screen as desired)
+    window.location.hash = '#/invoices';
   });
 }

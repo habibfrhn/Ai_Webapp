@@ -97,7 +97,7 @@ async function startServer() {
     }
   );
 
-  // Route to save the updated invoice data to MongoDB.
+  // Endpoint to save the updated invoice data to MongoDB.
   app.post(
     '/api/invoice/save',
     authenticate,
@@ -122,6 +122,32 @@ async function startServer() {
       }
     }
   );
+
+  // New endpoint: List invoices for the logged-in user.
+  app.get('/api/invoice/list', authenticate, async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = (req as any).userId;
+      const invoices = await InvoiceModel.find({ userId }).select('invoiceNumber buyerName invoiceDate dueDate totalAmount');
+      res.json({ success: true, invoices });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // New endpoint: Get full details of a specific invoice.
+  app.get('/api/invoice/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
+    try {
+      const invoiceId = req.params.id;
+      const invoice = await InvoiceModel.findById(invoiceId);
+      if (!invoice) {
+        res.status(404).json({ success: false, message: 'Invoice not found' });
+        return;
+      }
+      res.json({ success: true, invoice });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
 
   const port = process.env.PORT || 3000;
   app.listen(port, () => {

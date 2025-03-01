@@ -5,7 +5,7 @@ import { renderUploadScreen } from './screens/uploadScreen';
 import { renderListScreen } from './screens/listScreen';
 import { renderLoginScreen } from './screens/logInScreen';
 import { renderRegisterScreen } from './screens/registerScreen';
-import { renderEditInvoiceScreen } from './screens/editInvoiceScreen'; // NEW import
+import { renderEditInvoiceScreen } from './screens/editInvoiceScreen';
 
 /**
  * Checks whether the token exists.
@@ -76,7 +76,6 @@ async function router() {
     renderUploadScreen(mainArea, (extractedData, fileName) => {
       console.log('Upload success, extracted data:', extractedData);
       const imageUrl = `http://localhost:3000/uploads/${fileName}`;
-      // Pass fileName as the 4th argument to editInvoiceScreen.
       renderEditInvoiceScreen(mainArea, imageUrl, extractedData, fileName);
     });
   } else if (hash === '#/invoices') {
@@ -85,6 +84,27 @@ async function router() {
     renderLoginScreen(mainArea);
   } else if (hash === '#/register') {
     renderRegisterScreen(mainArea);
+  } else if (hash.startsWith('#/invoice/')) {
+    // New branch for viewing an existing invoice in edit mode.
+    const parts = hash.split('/');
+    const invoiceId = parts[2];
+    mainArea.innerHTML = `<p>Loading invoice details...</p>`;
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch(`http://localhost:3000/api/invoice/${invoiceId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok || !data.invoice) {
+        throw new Error(data.message || 'Failed to fetch invoice details');
+      }
+      const invoice = data.invoice;
+      const invoiceImageUrl = `http://localhost:3000/uploads/${invoice.fileName}`;
+      // Pass the invoice data to the edit screen.
+      renderEditInvoiceScreen(mainArea, invoiceImageUrl, invoice, invoice.fileName);
+    } catch (err: any) {
+      mainArea.innerHTML = `<h1>Error</h1><p>${err.message}</p>`;
+    }
   } else {
     mainArea.innerHTML = '<h1>404 - Page Not Found</h1>';
   }
