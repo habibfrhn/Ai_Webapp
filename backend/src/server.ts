@@ -30,7 +30,7 @@ async function startServer() {
   console.log('[SERVER] Mounting /api/auth routes...');
   app.use('/api/auth', authRoutes);
 
-  // Authentication middleware using proper types.
+  // Authentication middleware.
   function authenticate(req: Request, res: Response, next: NextFunction): void {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
@@ -50,7 +50,7 @@ async function startServer() {
   console.log('[SERVER] Setting up invoice upload route...');
   const upload = multer({ dest: path.join(__dirname, '../uploads') });
 
-  // Invoice upload route (protected by authentication)
+  // Invoice upload route.
   app.post(
     '/api/invoice/upload',
     authenticate,
@@ -67,7 +67,7 @@ async function startServer() {
           `[SERVER] File uploaded: ${req.file.originalname} stored at ${req.file.path}`
         );
 
-        // Retrieve the logged-in user's company name.
+        // Get the user's company name.
         const user = await UserModel.findById((req as any).userId);
         if (!user) {
           res.status(401).json({ success: false, message: 'User not found' });
@@ -75,7 +75,7 @@ async function startServer() {
         }
         const userCompany = user.companyName;
 
-        // Process the invoice image, passing the user's company name for categorization.
+        // Process the invoice image.
         const result = await processInvoiceImage(req.file.path, userCompany);
         if (result.success) {
           console.log('[SERVER] Invoice processing successful:', result.data);
@@ -97,7 +97,7 @@ async function startServer() {
     }
   );
 
-  // Endpoint to save the updated invoice data to MongoDB.
+  // Endpoint to save a new invoice.
   app.post(
     '/api/invoice/save',
     authenticate,
@@ -105,17 +105,12 @@ async function startServer() {
       console.log('[SERVER] /api/invoice/save called');
       try {
         const invoiceData = req.body;
-        // Create a new invoice record associated with the logged-in user.
         const newInvoice = new InvoiceModel({
           ...invoiceData,
           userId: (req as any).userId,
         });
         await newInvoice.save();
-        res.json({
-          success: true,
-          message: 'Invoice saved successfully',
-          invoice: newInvoice,
-        });
+        res.json({ success: true, message: 'Invoice saved successfully', invoice: newInvoice });
       } catch (err: any) {
         console.error('[SERVER] Error saving invoice:', err);
         res.status(500).json({ success: false, message: err.message });
@@ -123,18 +118,36 @@ async function startServer() {
     }
   );
 
-  // New endpoint: List invoices for the logged-in user.
+  // Endpoint to update an existing invoice.
+  app.put('/api/invoice/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
+    try {
+      const invoiceId = req.params.id;
+      const updatedData = req.body;
+      const invoice = await InvoiceModel.findByIdAndUpdate(invoiceId, updatedData, { new: true });
+      if (!invoice) {
+        res.status(404).json({ success: false, message: 'Invoice not found' });
+        return;
+      }
+      res.json({ success: true, message: 'Invoice updated successfully', invoice });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+  // Endpoint to list invoices for the logged-in user.
   app.get('/api/invoice/list', authenticate, async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = (req as any).userId;
-      const invoices = await InvoiceModel.find({ userId }).select('invoiceNumber buyerName invoiceDate dueDate totalAmount');
+      const invoices = await InvoiceModel.find({ userId }).select(
+        'invoiceNumber buyerName invoiceDate dueDate invoiceType totalAmount buyerAddress buyerPhone buyerEmail sellerName'
+      );
       res.json({ success: true, invoices });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }
-  });
+});
 
-  // New endpoint: Get full details of a specific invoice.
+  // Endpoint to get full details of a specific invoice.
   app.get('/api/invoice/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
     try {
       const invoiceId = req.params.id;
@@ -147,7 +160,37 @@ async function startServer() {
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }
-  });
+});
+
+  // Endpoint to delete a single invoice.
+  app.delete('/api/invoice/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
+    try {
+      const invoiceId = req.params.id;
+      const invoice = await InvoiceModel.findByIdAndDelete(invoiceId);
+      if (!invoice) {
+        res.status(404).json({ success: false, message: 'Invoice not found' });
+        return;
+      }
+      res.json({ success: true, message: 'Invoice deleted successfully' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+  // Endpoint to delete multiple invoices.
+  app.delete('/api/invoice', authenticate, async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { invoiceIds } = req.body;
+      if (!Array.isArray(invoiceIds) || invoiceIds.length === 0) {
+        res.status(400).json({ success: false, message: 'No invoice IDs provided' });
+        return;
+      }
+      const result = await InvoiceModel.deleteMany({ _id: { $in: invoiceIds } });
+      res.json({ success: true, message: `${result.deletedCount} invoices deleted successfully` });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+});
 
   const port = process.env.PORT || 3000;
   app.listen(port, () => {

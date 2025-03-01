@@ -5,7 +5,8 @@ import { renderUploadScreen } from './screens/uploadScreen';
 import { renderListScreen } from './screens/listScreen';
 import { renderLoginScreen } from './screens/logInScreen';
 import { renderRegisterScreen } from './screens/registerScreen';
-import { renderEditInvoiceScreen } from './screens/editInvoiceScreen';
+import { renderEditInvoiceScreen } from './screens/editInvoiceScreen'; // For new invoice creation after upload
+import { renderEditSavedInvoiceScreen } from './screens/editSavedInvoiceScreen'; // For editing saved invoice
 
 /**
  * Checks whether the token exists.
@@ -76,6 +77,7 @@ async function router() {
     renderUploadScreen(mainArea, (extractedData, fileName) => {
       console.log('Upload success, extracted data:', extractedData);
       const imageUrl = `http://localhost:3000/uploads/${fileName}`;
+      // For new invoices from upload, use editInvoiceScreen (which POSTs a new invoice)
       renderEditInvoiceScreen(mainArea, imageUrl, extractedData, fileName);
     });
   } else if (hash === '#/invoices') {
@@ -85,7 +87,7 @@ async function router() {
   } else if (hash === '#/register') {
     renderRegisterScreen(mainArea);
   } else if (hash.startsWith('#/invoice/')) {
-    // New branch for viewing an existing invoice in edit mode.
+    // Editing a saved invoice: use editSavedInvoiceScreen to update the existing invoice.
     const parts = hash.split('/');
     const invoiceId = parts[2];
     mainArea.innerHTML = `<p>Loading invoice details...</p>`;
@@ -100,8 +102,8 @@ async function router() {
       }
       const invoice = data.invoice;
       const invoiceImageUrl = `http://localhost:3000/uploads/${invoice.fileName}`;
-      // Pass the invoice data to the edit screen.
-      renderEditInvoiceScreen(mainArea, invoiceImageUrl, invoice, invoice.fileName);
+      // Use the editSavedInvoiceScreen to update the existing invoice.
+      renderEditSavedInvoiceScreen(mainArea, invoiceImageUrl, invoice, invoice.fileName, invoiceId);
     } catch (err: any) {
       mainArea.innerHTML = `<h1>Error</h1><p>${err.message}</p>`;
     }
