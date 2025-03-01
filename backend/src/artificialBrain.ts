@@ -1,4 +1,3 @@
-// backend/src/artificialBrain.ts
 import 'dotenv/config';
 import OpenAI from 'openai';
 
@@ -15,7 +14,10 @@ const openai = new OpenAI({
  * @param systemInstruction - Optional system message to set context.
  * @returns The text response from DeepSeek.
  */
-export async function callDeepSeek(prompt: string, systemInstruction = 'You are a helpful invoice extraction assistant.'): Promise<string> {
+export async function callDeepSeek(
+  prompt: string,
+  systemInstruction = 'You are a helpful invoice extraction assistant.'
+): Promise<string> {
   console.log('[DEEPSEEK] Preparing chat messages with provided prompt');
 
   const systemMessage = {
@@ -30,7 +32,7 @@ export async function callDeepSeek(prompt: string, systemInstruction = 'You are 
 
   console.log('[DEEPSEEK] Sending chat.completions.create request...');
   const completion = await openai.chat.completions.create({
-    model: 'deepseek-chat',
+    model: 'deepseek-reasoner',
     messages: [systemMessage, userMessage],
   });
 

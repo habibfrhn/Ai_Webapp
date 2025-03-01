@@ -1,5 +1,3 @@
-// client/src/screens/editInvoiceScreen.ts
-
 interface InvoiceData {
   sellerName?: string;
   buyerName?: string;
@@ -20,6 +18,17 @@ export function renderEditInvoiceScreen(
   extractedData: InvoiceData,
   fileName: string
 ) {
+  // Add a Back button to the navigation panel if not already present
+  const nav = document.querySelector('nav');
+  if (nav && !nav.querySelector('#backBtn')) {
+    const backBtn = document.createElement('button');
+    backBtn.id = 'backBtn';
+    backBtn.textContent = 'Back';
+    backBtn.style.marginBottom = '1rem';
+    backBtn.addEventListener('click', () => window.history.back());
+    nav.insertBefore(backBtn, nav.firstChild);
+  }
+
   container.innerHTML = `
     <div style="display: flex; height: 100%;">
       <!-- Left: Invoice Preview -->
@@ -81,12 +90,14 @@ export function renderEditInvoiceScreen(
           <input type="hidden" name="fileName" value="${fileName}" />
           <div style="display: flex; gap: 1rem;">
             <button type="submit" style="padding: 0.5rem 1rem;">Save Invoice</button>
+            <button type="button" id="deleteBtn" style="padding: 0.5rem 1rem; background-color: #dc2626; color: white; border: none; cursor: pointer;">Delete</button>
             <button type="button" id="cancelBtn" style="padding: 0.5rem 1rem; background-color: #ccc; border: none; cursor: pointer;">Cancel</button>
           </div>
         </form>
       </div>
     </div>
   `;
+
   const form = container.querySelector<HTMLFormElement>('#invoiceForm');
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -121,7 +132,7 @@ export function renderEditInvoiceScreen(
       const result = await response.json();
       if (result.success) {
         alert('Invoice saved successfully.');
-        window.location.hash = '#/invoices';  // Redirect to listScreen
+        window.location.hash = '#/invoices';
       } else {
         alert(`Error: ${result.message}`);
       }
@@ -132,5 +143,28 @@ export function renderEditInvoiceScreen(
   const cancelBtn = container.querySelector<HTMLButtonElement>('#cancelBtn');
   cancelBtn?.addEventListener('click', () => {
     window.location.hash = '#/invoices';
+  });
+  const deleteBtn = container.querySelector<HTMLButtonElement>('#deleteBtn');
+  deleteBtn?.addEventListener('click', async () => {
+    const confirmDelete = confirm('Are you sure you want to delete this invoice?');
+    if (!confirmDelete) return;
+    const token = localStorage.getItem('token');
+    try {
+      const response = await fetch(`http://localhost:3000/api/invoice/${fileName}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      const result = await response.json();
+      if (result.success) {
+        alert('Invoice deleted successfully.');
+        window.location.hash = '#/invoices';
+      } else {
+        alert(`Error: ${result.message}`);
+      }
+    } catch (err: any) {
+      alert(`Failed to delete invoice: ${err.message}`);
+    }
   });
 }

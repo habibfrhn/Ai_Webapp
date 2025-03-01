@@ -1,10 +1,10 @@
-// backend/src/server.ts
 import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import path from 'path';
 import jwt from 'jsonwebtoken';
+import fs from 'fs';
 import { connectDB } from '../src/database/mongoose';
 import authRoutes from '../src/authentication/authRoutes';
 import { processInvoiceImage } from '../src/invoiceProcessor';
@@ -105,9 +105,14 @@ async function startServer() {
       console.log('[SERVER] /api/invoice/save called');
       try {
         const invoiceData = req.body;
+        // Read the image file from the uploads folder
+        const imagePath = path.join(__dirname, '../uploads', invoiceData.fileName);
+        const imageBuffer = fs.readFileSync(imagePath);
+
         const newInvoice = new InvoiceModel({
           ...invoiceData,
           userId: (req as any).userId,
+          invoiceImage: imageBuffer,
         });
         await newInvoice.save();
         res.json({ success: true, message: 'Invoice saved successfully', invoice: newInvoice });
@@ -123,6 +128,11 @@ async function startServer() {
     try {
       const invoiceId = req.params.id;
       const updatedData = req.body;
+      // If fileName is provided, update the invoice image as well.
+      if (updatedData.fileName) {
+        const imagePath = path.join(__dirname, '../uploads', updatedData.fileName);
+        updatedData.invoiceImage = fs.readFileSync(imagePath);
+      }
       const invoice = await InvoiceModel.findByIdAndUpdate(invoiceId, updatedData, { new: true });
       if (!invoice) {
         res.status(404).json({ success: false, message: 'Invoice not found' });
@@ -132,7 +142,7 @@ async function startServer() {
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }
-});
+  });
 
   // Endpoint to list invoices for the logged-in user.
   app.get('/api/invoice/list', authenticate, async (req: Request, res: Response): Promise<void> => {
@@ -145,7 +155,7 @@ async function startServer() {
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }
-});
+  });
 
   // Endpoint to get full details of a specific invoice.
   app.get('/api/invoice/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
@@ -160,7 +170,7 @@ async function startServer() {
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }
-});
+  });
 
   // Endpoint to delete a single invoice.
   app.delete('/api/invoice/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
@@ -175,7 +185,7 @@ async function startServer() {
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }
-});
+  });
 
   // Endpoint to delete multiple invoices.
   app.delete('/api/invoice', authenticate, async (req: Request, res: Response): Promise<void> => {
@@ -190,7 +200,7 @@ async function startServer() {
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }
-});
+  });
 
   const port = process.env.PORT || 3000;
   app.listen(port, () => {

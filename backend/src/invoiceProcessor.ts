@@ -1,4 +1,3 @@
-// backend/src/invoiceProcessor.ts
 import { extractTextFromImage } from './tesseract';
 import { callDeepSeek } from './artificialBrain';
 
@@ -20,7 +19,7 @@ export async function processInvoiceImage(filePath: string, userCompany: string)
     const { rawText } = await extractTextFromImage(filePath);
     console.log('[PROCESSOR] OCR rawText length:', rawText.length);
 
-    // Update the prompt so DeepSeek categorizes the invoice.
+    // Updated prompt with reasoning instructions.
     const deepseekPrompt = `
 Below is the OCR text of an invoice. Return only JSON (no code blocks) with these exact keys:
 
@@ -41,6 +40,10 @@ Below is the OCR text of an invoice. Return only JSON (no code blocks) with thes
 Invoice categorization:
 - If the sellerName matches our company name "${userCompany}", then invoiceType is "Faktur keluar".
 - Otherwise, invoiceType is "Faktur masuk".
+
+Note:
+- Buyer information (buyerName, buyerAddress, buyerPhone, buyerEmail) usually appears together in one section. In some cases these details may be split into two sections—but they remain close together.
+- If any buyer detail (e.g., a phone number or address) appears far from the other buyer fields, it could be part of the seller’s information. Use reasoning to determine the correct assignment.
 
 If a field is missing, set it to null.
 For "invoiceDate" and "dueDate", use dd/mm/yyyy only.

@@ -1,4 +1,3 @@
-// backend/src/database/invoiceModel.ts
 import { Schema, model } from 'mongoose';
 
 export interface IInvoice {
@@ -15,6 +14,7 @@ export interface IInvoice {
   totalAmount: string | null;
   invoiceType: string | null; // "Faktur masuk" or "Faktur keluar"
   fileName: string;
+  invoiceImage: Buffer;
   createdAt: Date;
 }
 
@@ -32,6 +32,7 @@ const invoiceSchema = new Schema<IInvoice>({
   totalAmount: { type: String, default: null },
   invoiceType: { type: String, default: null },
   fileName: { type: String, required: true },
+  invoiceImage: { type: Buffer, required: true },
   createdAt: { type: Date, default: Date.now }
 });
 
