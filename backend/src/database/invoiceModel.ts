@@ -16,6 +16,7 @@ export interface IInvoice {
   fileName: string;
   invoiceImage: Buffer;
   createdAt: Date;
+  temporary: boolean; // <--- new field
 }
 
 const invoiceSchema = new Schema<IInvoice>({
@@ -33,7 +34,11 @@ const invoiceSchema = new Schema<IInvoice>({
   invoiceType: { type: String, default: null },
   fileName: { type: String, required: true },
   invoiceImage: { type: Buffer, required: true },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+
+  // Add this field so your code can track "draft" vs. "final"
+  // Default can be true or false, but your server code typically sets it explicitly.
+  temporary: { type: Boolean, default: true },
 });
 
 export const InvoiceModel = model<IInvoice>('Invoice', invoiceSchema);

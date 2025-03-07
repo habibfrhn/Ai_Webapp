@@ -29,14 +29,13 @@ const UploadScreen = () => {
       if (!response.ok) {
         throw new Error(`Upload failed: ${response.status}`);
       }
-      const { success, extractedData, fileName, message } = await response.json();
+      const { success, extractedData, invoiceId, message } = await response.json();
       if (success) {
         setStatus('Upload successful.');
         navigate('/edit-invoice', {
           state: {
-            invoiceImageUrl: `http://localhost:3000/uploads/${fileName}`,
+            invoiceId,
             extractedData,
-            fileName,
           },
         });
       } else {

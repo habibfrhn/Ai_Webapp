@@ -40,9 +40,22 @@ const ListScreen = () => {
   useEffect(() => {
     const token = localStorage.getItem('token');
     fetch('http://localhost:3000/api/invoice/list', {
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}` },
     })
-      .then((resp) => resp.json())
+      .then(async (resp) => {
+        // If the server returns an error status, throw before parsing JSON
+        if (!resp.ok) {
+          const errorText = await resp.text();
+          throw new Error(`Server error: ${resp.status} ${errorText}`);
+        }
+        // Attempt to parse JSON. If parsing fails, capture the raw text for debugging
+        try {
+          return await resp.json();
+        } catch {
+          const text = await resp.text();
+          throw new Error(`Failed to parse JSON. Response text: ${text}`);
+        }
+      })
       .then((data) => {
         if (data.invoices) {
           setInvoices(data.invoices);
@@ -89,21 +102,23 @@ const ListScreen = () => {
   };
 
   const handleMultiDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete ${selectedInvoiceIds.size} selected invoice(s)?`)) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedInvoiceIds.size} selected invoice(s)?`)) {
+      return;
+    }
     const token = localStorage.getItem('token');
     try {
       const response = await fetch('http://localhost:3000/api/invoice', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ invoiceIds: Array.from(selectedInvoiceIds) }),
       });
       const result = await response.json();
       if (result.success) {
         alert(result.message);
-        setInvoices(invoices.filter((inv) => !selectedInvoiceIds.has(inv._id)));
+        setInvoices((prev) => prev.filter((inv) => !selectedInvoiceIds.has(inv._id)));
         setSelectedInvoiceIds(new Set());
       } else {
         alert(`Error: ${result.message}`);

@@ -8,20 +8,19 @@ function stripCodeBlocks(text: string): string {
 
 /**
  * Processes the invoice image.
- * @param filePath - Path to the uploaded image.
+ * @param fileBuffer - Buffer of the uploaded image.
  * @param userCompany - The company name of the logged in user.
  * @returns An object with a success flag and extracted data.
  */
-export async function processInvoiceImage(filePath: string, userCompany: string) {
-  console.log('[PROCESSOR] Starting invoice processing for:', filePath);
+export async function processInvoiceImage(fileBuffer: Buffer, userCompany: string) {
+  console.log('[PROCESSOR] Starting invoice processing for buffer');
 
   try {
-    const { rawText } = await extractTextFromImage(filePath);
+    const { rawText } = await extractTextFromImage(fileBuffer);
     console.log('[PROCESSOR] OCR rawText length:', rawText.length);
 
-    // Updated prompt with reasoning instructions.
-    const deepseekPrompt = `
-Below is the OCR text of an invoice. Return only JSON (no code blocks) with these exact keys:
+    const deepseekPrompt = 
+`Below is the OCR text of an invoice. Return only JSON (no code blocks) with these exact keys:
 
 {
   "sellerName": ...,

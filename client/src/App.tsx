@@ -6,8 +6,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import HomeScreen from './screens/homeScreen';
 import ListScreen from './screens/ListScreen';
-import ClientInfoScreen from './screens/clientInfoScreen';
-import HistoryScreen from './screens/historyScreen';
+import ClientInfoScreen from './screens/ClientInfoScreen';
+import HistoryScreen from './screens/HistoryScreen';
 
 import UploadScreen from './screens/UploadScreen';
 import EditInvoiceScreen from './screens/EditInvoiceScreen';
