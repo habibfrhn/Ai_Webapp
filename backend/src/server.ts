@@ -61,7 +61,6 @@ async function startServer(): Promise<void> {
         }
         console.log(`[SERVER] File uploaded: ${req.file.originalname} received in memory`);
 
-        // Get the user's company name.
         const user = await UserModel.findById((req as any).userId);
         if (!user) {
           res.status(401).json({ success: false, message: 'User not found' });
@@ -77,7 +76,11 @@ async function startServer(): Promise<void> {
           return;
         }
 
-        console.log('[SERVER] Invoice processing successful:', result.data);
+        // Build createdTime in hh:mm
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        const createdTime = `${hh}:${mm}`;
 
         // Create a temporary invoice record.
         const newInvoice = new InvoiceModel({
@@ -86,6 +89,9 @@ async function startServer(): Promise<void> {
           temporary: true,
           invoiceImage: req.file.buffer,
           fileName: req.file.originalname,
+          // Default status is "Belum diproses"
+          status: 'Belum diproses',
+          createdTime,
         });
         await newInvoice.save();
 
@@ -94,7 +100,7 @@ async function startServer(): Promise<void> {
           invoiceId: newInvoice._id,
           extractedData: result.data,
         });
-        return; // or just end without returning anything
+        return;
       } catch (err: any) {
         console.error('[SERVER ERROR]', err);
         res.status(500).json({ success: false, message: err.message });

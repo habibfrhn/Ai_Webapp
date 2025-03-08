@@ -2,17 +2,24 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
 
 interface InvoiceData {
-  sellerName?: string;
-  buyerName?: string;
-  buyerAddress?: string;
-  buyerPhone?: string;
-  buyerEmail?: string;
-  invoiceNumber?: string;
-  invoiceDate?: string;
-  dueDate?: string;
-  taxDetails?: string;
-  totalAmount?: string;
-  invoiceType?: string;
+  sellerName?: string | null;
+  sellerAddress?: string | null;
+  sellerPhone?: string | null;
+  sellerEmail?: string | null;
+  sellerTaxId?: string | null;
+
+  buyerName?: string | null;
+  buyerAddress?: string | null;
+  buyerPhone?: string | null;
+  buyerEmail?: string | null;
+  buyerTaxId?: string | null;
+
+  invoiceNumber?: string | null;
+  invoiceDate?: string | null;
+  dueDate?: string | null;
+  taxDetails?: string | null;
+  totalAmount?: string | null;
+  invoiceType?: 'Faktur masuk' | 'Faktur keluar' | '';
 }
 
 const EditInvoiceScreen = () => {
@@ -25,19 +32,26 @@ const EditInvoiceScreen = () => {
   const { invoiceId, extractedData } = state;
   const navigate = useNavigate();
 
-  // Initialize form data from extractedData or empty strings
+  // Merge new fields with existing extracted data
   const [formData, setFormData] = useState<InvoiceData>({
     sellerName: extractedData?.sellerName || '',
+    sellerAddress: extractedData?.sellerAddress || '',
+    sellerPhone: extractedData?.sellerPhone || '',
+    sellerEmail: extractedData?.sellerEmail || '',
+    sellerTaxId: extractedData?.sellerTaxId || '',
+
     buyerName: extractedData?.buyerName || '',
     buyerAddress: extractedData?.buyerAddress || '',
     buyerPhone: extractedData?.buyerPhone || '',
     buyerEmail: extractedData?.buyerEmail || '',
+    buyerTaxId: extractedData?.buyerTaxId || '',
+
     invoiceNumber: extractedData?.invoiceNumber || '',
     invoiceDate: extractedData?.invoiceDate || '',
     dueDate: extractedData?.dueDate || '',
     taxDetails: extractedData?.taxDetails || '',
     totalAmount: extractedData?.totalAmount || '',
-    invoiceType: extractedData?.invoiceType || '',
+    invoiceType: extractedData?.invoiceType || 'Faktur masuk',
   });
 
   // Zoom/pan states
@@ -46,11 +60,12 @@ const EditInvoiceScreen = () => {
   const [dragging, setDragging] = useState(false);
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
 
-  // Store the Blob URL for the invoice image
+  // Image source
   const [imageSrc, setImageSrc] = useState<string>('');
   const imgContainerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
 
-  // 1. Fetch the invoice image from the protected endpoint
+  // Fetch the image from the server
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -74,7 +89,6 @@ const EditInvoiceScreen = () => {
         console.error('Failed to load image:', err);
       });
 
-    // Cleanup: revoke the object URL when unmounting
     return () => {
       if (objectUrl) {
         URL.revokeObjectURL(objectUrl);
@@ -82,8 +96,37 @@ const EditInvoiceScreen = () => {
     };
   }, [invoiceId]);
 
-  // 2. Mouse events for panning the image
+  // On image load, measure container & image => compute initial scale/translate
+  const handleImageLoad = () => {
+    if (!imgContainerRef.current || !imgRef.current) return;
+
+    const containerRect = imgContainerRef.current.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    const containerHeight = containerRect.height;
+
+    const naturalWidth = imgRef.current.naturalWidth;
+    const naturalHeight = imgRef.current.naturalHeight;
+
+    // Fit the image fully in the half-screen container
+    const scaleToFitWidth = containerWidth / naturalWidth;
+    const scaleToFitHeight = containerHeight / naturalHeight;
+    const initialScale = Math.min(scaleToFitWidth, scaleToFitHeight);
+
+    // Pin image to the top, center horizontally
+    const imageDisplayWidth = naturalWidth * initialScale;
+    // const imageDisplayHeight = naturalHeight * initialScale;
+
+    const offsetX = (containerWidth - imageDisplayWidth) / 2;
+    const offsetY = 0;
+
+    setScale(initialScale);
+    setTranslate({ x: offsetX, y: offsetY });
+  };
+
+  // Mouse events for panning (left-click only)
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Only proceed if left button (button=0)
+    if (e.button !== 0) return;
     e.preventDefault();
     setDragging(true);
     setLastPos({ x: e.clientX, y: e.clientY });
@@ -101,25 +144,25 @@ const EditInvoiceScreen = () => {
     setDragging(false);
   };
 
-  // Mouse wheel for zooming
+  // Zoom with mouse wheel
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
     setScale((prev) => Math.max(0.5, prev + delta));
   };
 
-  // 3. Form field changes
+  // Form changes
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 4. Save Invoice -> finalize (sets temporary=false)
+  // Save -> finalize invoice
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // If date is not strictly dd/mm/yyyy, the user sees an alert and we do NOT call the API
     const dateRegex = /^(\d{1,2}\/\d{1,2}\/\d{4})$/;
     if (!dateRegex.test(formData.invoiceDate || '')) {
       alert('Please use dd/mm/yyyy format for Tanggal Faktur');
@@ -128,6 +171,22 @@ const EditInvoiceScreen = () => {
     if (!dateRegex.test(formData.dueDate || '')) {
       alert('Please use dd/mm/yyyy format for Tanggal Jatuh Tempo');
       return;
+    }
+
+    // Copy data, remove irrelevant fields
+    const finalData = { ...formData };
+    if (formData.invoiceType === 'Faktur masuk') {
+      finalData.buyerName = null;
+      finalData.buyerAddress = null;
+      finalData.buyerPhone = null;
+      finalData.buyerEmail = null;
+      finalData.buyerTaxId = null;
+    } else if (formData.invoiceType === 'Faktur keluar') {
+      finalData.sellerName = null;
+      finalData.sellerAddress = null;
+      finalData.sellerPhone = null;
+      finalData.sellerEmail = null;
+      finalData.sellerTaxId = null;
     }
 
     const token = localStorage.getItem('token');
@@ -143,20 +202,16 @@ const EditInvoiceScreen = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ invoiceId, ...formData }),
+        body: JSON.stringify({ invoiceId, ...finalData }),
       });
-      // If the server returns an error code, you might want to check that here:
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Save request failed: ${response.status} - ${errorText}`);
       }
 
       const result = await response.json();
-      console.log('Save Invoice response:', result); // Debug: see if success or error
       if (result.success) {
         alert('Invoice saved successfully.');
-        // After saving, the invoice is now "temporary=false" on the server.
-        // This means you can see it in ListScreen if you re-fetch from the server.
         navigate('/invoices');
       } else {
         alert(`Error: ${result.message}`);
@@ -170,7 +225,7 @@ const EditInvoiceScreen = () => {
     }
   };
 
-  // 5. Cancel -> delete the temporary invoice from DB
+  // Cancel -> delete the temporary invoice
   const handleCancel = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -198,28 +253,36 @@ const EditInvoiceScreen = () => {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-full">
-      {/* Left Panel: Image Preview */}
+    <div className="flex h-screen">
+      {/* 
+        Left Panel: 
+          - sticky so it doesn't scroll
+          - top-0 pinned at top
+          - h-screen fills vertical space
+          - w-1/2 for half-screen width
+          - overflow-hidden, no scrollbars
+          - NO padding class => no extra margin around the image
+          - border-r for a vertical divider
+      */}
       <div
-        className="flex-1 border-r p-4"
+        className="sticky top-0 h-screen w-1/2 overflow-hidden border-r"
         ref={imgContainerRef}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
         style={{
-          overflow: 'hidden',
           display: 'flex',
           justifyContent: 'center',
-          alignItems: 'center',
-          height: '500px',
+          alignItems: 'flex-start',
         }}
       >
         {imageSrc ? (
           <img
+            ref={imgRef}
             src={imageSrc}
             alt="Invoice"
+            onLoad={handleImageLoad}
             style={{
               transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
               cursor: dragging ? 'grabbing' : 'grab',
@@ -231,66 +294,157 @@ const EditInvoiceScreen = () => {
         )}
       </div>
 
-      {/* Right Panel: Invoice Form */}
-      <div className="flex-1 p-4">
+      {/* 
+        Right Panel: 
+          - flex-1 so it takes remaining width
+          - p-4 for padding
+          - overflow-y-auto to scroll the form if it's tall
+      */}
+      <div className="flex-1 p-4 overflow-y-auto">
         <h2 className="text-xl font-bold mb-4">New Invoice Data</h2>
-        {/* noValidate disables HTML5 pattern checks; we do manual checks in handleSubmit */}
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+          {/* Invoice Type */}
           <div>
-            <label className="block font-bold">Nama Penjual/Perusahaan</label>
-            <input
-              type="text"
-              name="sellerName"
-              value={formData.sellerName}
+            <label className="block font-bold">Tipe Faktur</label>
+            <select
+              name="invoiceType"
+              value={formData.invoiceType || ''}
               onChange={handleChange}
               className="w-full border p-2"
-            />
+            >
+              <option value="Faktur masuk">Faktur masuk</option>
+              <option value="Faktur keluar">Faktur keluar</option>
+            </select>
           </div>
-          <div>
-            <label className="block font-bold">Nama Pembeli</label>
-            <input
-              type="text"
-              name="buyerName"
-              value={formData.buyerName}
-              onChange={handleChange}
-              className="w-full border p-2"
-            />
-          </div>
-          <div>
-            <label className="block font-bold">Alamat Pembeli</label>
-            <textarea
-              name="buyerAddress"
-              value={formData.buyerAddress}
-              onChange={handleChange}
-              className="w-full border p-2 resize-vertical"
-            />
-          </div>
-          <div>
-            <label className="block font-bold">Nomor Telefon Pembeli</label>
-            <input
-              type="text"
-              name="buyerPhone"
-              value={formData.buyerPhone}
-              onChange={handleChange}
-              className="w-full border p-2"
-            />
-          </div>
-          <div>
-            <label className="block font-bold">Email Pembeli</label>
-            <input
-              type="text"
-              name="buyerEmail"
-              value={formData.buyerEmail}
-              onChange={handleChange}
-              className="w-full border p-2"
-            />
-          </div>
+
+          {/* If invoiceType === "Faktur masuk", show seller fields only */}
+          {formData.invoiceType === 'Faktur masuk' && (
+            <>
+              <div>
+                <label className="block font-bold">Nama Penjual</label>
+                <input
+                  type="text"
+                  name="sellerName"
+                  placeholder="Nama Penjual"
+                  value={formData.sellerName || ''}
+                  onChange={handleChange}
+                  className="w-full border p-2"
+                />
+              </div>
+              <div>
+                <label className="block font-bold">Alamat Penjual</label>
+                <textarea
+                  name="sellerAddress"
+                  placeholder="Alamat Penjual"
+                  value={formData.sellerAddress || ''}
+                  onChange={handleChange}
+                  className="w-full border p-2 resize-vertical"
+                />
+              </div>
+              <div>
+                <label className="block font-bold">Nomor Telefon Penjual</label>
+                <input
+                  type="text"
+                  name="sellerPhone"
+                  placeholder="Nomor Telefon Penjual"
+                  value={formData.sellerPhone || ''}
+                  onChange={handleChange}
+                  className="w-full border p-2"
+                />
+              </div>
+              <div>
+                <label className="block font-bold">Email Penjual</label>
+                <input
+                  type="text"
+                  name="sellerEmail"
+                  placeholder="Email Penjual"
+                  value={formData.sellerEmail || ''}
+                  onChange={handleChange}
+                  className="w-full border p-2"
+                />
+              </div>
+              <div>
+                <label className="block font-bold">NPWP Penjual (sellerTaxId)</label>
+                <input
+                  type="text"
+                  name="sellerTaxId"
+                  placeholder="NPWP Penjual"
+                  value={formData.sellerTaxId || ''}
+                  onChange={handleChange}
+                  className="w-full border p-2"
+                />
+              </div>
+            </>
+          )}
+
+          {/* If invoiceType === "Faktur keluar", show buyer fields only */}
+          {formData.invoiceType === 'Faktur keluar' && (
+            <>
+              <div>
+                <label className="block font-bold">Nama Pembeli</label>
+                <input
+                  type="text"
+                  name="buyerName"
+                  placeholder="Nama Pembeli"
+                  value={formData.buyerName || ''}
+                  onChange={handleChange}
+                  className="w-full border p-2"
+                />
+              </div>
+              <div>
+                <label className="block font-bold">Alamat Pembeli</label>
+                <textarea
+                  name="buyerAddress"
+                  placeholder="Alamat Pembeli"
+                  value={formData.buyerAddress || ''}
+                  onChange={handleChange}
+                  className="w-full border p-2 resize-vertical"
+                />
+              </div>
+              <div>
+                <label className="block font-bold">Nomor Telefon Pembeli</label>
+                <input
+                  type="text"
+                  name="buyerPhone"
+                  placeholder="Nomor Telefon Pembeli"
+                  value={formData.buyerPhone || ''}
+                  onChange={handleChange}
+                  className="w-full border p-2"
+                />
+              </div>
+              <div>
+                <label className="block font-bold">Email Pembeli</label>
+                <input
+                  type="text"
+                  name="buyerEmail"
+                  placeholder="Email Pembeli"
+                  value={formData.buyerEmail || ''}
+                  onChange={handleChange}
+                  className="w-full border p-2"
+                />
+              </div>
+              <div>
+                <label className="block font-bold">NPWP Pembeli (buyerTaxId)</label>
+                <input
+                  type="text"
+                  name="buyerTaxId"
+                  placeholder="NPWP Pembeli"
+                  value={formData.buyerTaxId || ''}
+                  onChange={handleChange}
+                  className="w-full border p-2"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Common invoice fields */}
           <div>
             <label className="block font-bold">Nomor Faktur</label>
             <input
               type="text"
               name="invoiceNumber"
-              value={formData.invoiceNumber}
+              placeholder="Nomor Faktur"
+              value={formData.invoiceNumber || ''}
               onChange={handleChange}
               className="w-full border p-2"
             />
@@ -300,9 +454,9 @@ const EditInvoiceScreen = () => {
             <input
               type="text"
               name="invoiceDate"
-              value={formData.invoiceDate}
-              onChange={handleChange}
               placeholder="dd/mm/yyyy"
+              value={formData.invoiceDate || ''}
+              onChange={handleChange}
               className="w-full border p-2"
             />
           </div>
@@ -311,9 +465,9 @@ const EditInvoiceScreen = () => {
             <input
               type="text"
               name="dueDate"
-              value={formData.dueDate}
-              onChange={handleChange}
               placeholder="dd/mm/yyyy"
+              value={formData.dueDate || ''}
+              onChange={handleChange}
               className="w-full border p-2"
             />
           </div>
@@ -322,7 +476,8 @@ const EditInvoiceScreen = () => {
             <input
               type="text"
               name="taxDetails"
-              value={formData.taxDetails}
+              placeholder="10%"
+              value={formData.taxDetails || ''}
               onChange={handleChange}
               className="w-full border p-2"
             />
@@ -332,23 +487,14 @@ const EditInvoiceScreen = () => {
             <input
               type="text"
               name="totalAmount"
-              value={formData.totalAmount}
+              placeholder="Total Pembayaran"
+              value={formData.totalAmount || ''}
               onChange={handleChange}
               className="w-full border p-2"
             />
           </div>
-          <div>
-            <label className="block font-bold">Tipe Faktur</label>
-            <select
-              name="invoiceType"
-              value={formData.invoiceType}
-              onChange={handleChange}
-              className="w-full border p-2"
-            >
-              <option value="Faktur masuk">Faktur masuk</option>
-              <option value="Faktur keluar">Faktur keluar</option>
-            </select>
-          </div>
+
+          {/* Submit/Cancel */}
           <div className="flex gap-4">
             <button type="submit" className="px-4 py-2 bg-blue-600 text-white">
               Save Invoice

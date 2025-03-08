@@ -19,15 +19,21 @@ export async function processInvoiceImage(fileBuffer: Buffer, userCompany: strin
     const { rawText } = await extractTextFromImage(fileBuffer);
     console.log('[PROCESSOR] OCR rawText length:', rawText.length);
 
+    // Updated prompt with new fields
     const deepseekPrompt = 
 `Below is the OCR text of an invoice. Return only JSON (no code blocks) with these exact keys:
 
 {
   "sellerName": ...,
+  "sellerAddress": ...,
+  "sellerPhone": ...,
+  "sellerEmail": ...,
+  "sellerTaxId": ...,
   "buyerName": ...,
   "buyerAddress": ...,
   "buyerPhone": ...,
   "buyerEmail": ...,
+  "buyerTaxId": ...,
   "invoiceNumber": ...,
   "invoiceDate": ...,
   "dueDate": ...,
@@ -41,12 +47,12 @@ Invoice categorization:
 - Otherwise, invoiceType is "Faktur masuk".
 
 Note:
-- Buyer information (buyerName, buyerAddress, buyerPhone, buyerEmail) usually appears together in one section. In some cases these details may be split into two sections—but they remain close together.
+- Buyer information (buyerName, buyerAddress, buyerPhone, buyerEmail, buyerTaxId) usually appears together in one section.
 - If any buyer detail (e.g., a phone number or address) appears far from the other buyer fields, it could be part of the seller’s information. Use reasoning to determine the correct assignment.
-
-If a field is missing, set it to null.
-For "invoiceDate" and "dueDate", use dd/mm/yyyy only.
-"taxDetails" should be a percentage only (e.g., "10%").
+- If a field is missing, set it to null.
+- For "invoiceDate" and "dueDate", use dd/mm/yyyy only.
+- "taxDetails" should be a percentage only (e.g., "10%").
+- "invoiceType" can only be "Faktur masuk" or "Faktur keluar".
 
 Do not add any disclaimers or extra text. Just valid JSON.
 

@@ -32,7 +32,7 @@ export async function callDeepSeek(
 
   console.log('[DEEPSEEK] Sending chat.completions.create request...');
   const completion = await openai.chat.completions.create({
-    model: 'deepseek-reasoner',
+    model: 'deepseek-chat',
     messages: [systemMessage, userMessage],
   });
 
