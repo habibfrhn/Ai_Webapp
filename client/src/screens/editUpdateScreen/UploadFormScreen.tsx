@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// UploadFormScreen.tsx
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { InvoiceData } from './EditInvoiceScreen';
 
@@ -11,12 +12,8 @@ interface UploadFormScreenProps {
   extractedData: InvoiceData;
 }
 
-const UploadFormScreen: React.FC<UploadFormScreenProps> = ({
-  invoiceId,
-  extractedData,
-}) => {
+const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extractedData }) => {
   const navigate = useNavigate();
-
   const [formData, setFormData] = useState<InvoiceFormData>({
     sellerName: extractedData?.sellerName || '',
     sellerAddress: extractedData?.sellerAddress || '',
@@ -34,20 +31,40 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({
     taxDetails: extractedData?.taxDetails || '',
     totalAmount: extractedData?.totalAmount || '',
     invoiceType: extractedData?.invoiceType || 'Faktur masuk',
-    status: 'Belum diproses', // default status set here
+    status: 'Belum diproses',
   });
 
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
+  // Ref to track if the form was finalized (submitted or cancelled)
+  const isFinalized = useRef(false);
+
+  // Trigger cleanup via sendBeacon if the user leaves without finalizing.
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!isFinalized.current) {
+        const token = localStorage.getItem('token');
+        if (token) {
+          const url = 'http://localhost:3000/api/invoice/temp/cleanup-all';
+          // Note: sendBeacon sends a POST request with 'text/plain' MIME type.
+          const data = JSON.stringify({});
+          navigator.sendBeacon(url, data);
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Mark form as finalized to prevent cleanup on unload.
+    isFinalized.current = true;
 
     const dateRegex = /^(\d{1,2}\/\d{1,2}\/\d{4})$/;
     if (!dateRegex.test(formData.invoiceDate || '')) {
@@ -59,7 +76,7 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({
       return;
     }
 
-    // Remove irrelevant fields based on invoice type
+    // Remove irrelevant fields based on invoice type.
     const finalData = { ...formData };
     if (formData.invoiceType === 'Faktur masuk') {
       finalData.buyerName = null;
@@ -111,28 +128,20 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({
   };
 
   const handleCancel = async () => {
+    // Mark as finalized and trigger cleanup.
+    isFinalized.current = true;
     const token = localStorage.getItem('token');
-    if (!token) {
-      alert('No token found; please log in again.');
-      return;
-    }
-    try {
-      const response = await fetch(`http://localhost:3000/api/invoice/temp/${invoiceId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Cancel request failed: ${response.status} - ${errorText}`);
-      }
-      navigate('/invoices');
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        alert(`Failed to cancel invoice: ${err.message}`);
-      } else {
-        alert('Failed to cancel invoice (unknown error)');
+    if (token) {
+      try {
+        await fetch('http://localhost:3000/api/invoice/temp/cleanup-all', {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch (error) {
+        console.error('Cleanup error on cancel:', error);
       }
     }
+    navigate('/invoices');
   };
 
   return (
@@ -168,7 +177,7 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({
           </div>
         </div>
 
-        {/* Spacer reduced to mt-2 */}
+        {/* Spacer */}
         <div className="mt-2"></div>
 
         {/* Informasi Penjual / Pembeli Section */}
@@ -296,7 +305,7 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({
           </div>
         )}
 
-        {/* Spacer reduced to mt-2 */}
+        {/* Spacer */}
         <div className="mt-2"></div>
 
         {/* Informasi Faktur Section */}
@@ -370,8 +379,8 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({
           <button type="submit" className="px-3 py-1 bg-blue-600 text-white text-sm">
             Upload faktur
           </button>
-          <button type="button" onClick={handleCancel} className="px-3 py-1 bg-gray-200 text-white text-sm">
-            Batal
+          <button type="button" onClick={handleCancel} className="px-3 py-1 bg-transparent text-black text-sm underline">
+            Batalkan
           </button>
         </div>
       </form>

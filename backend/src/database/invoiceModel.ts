@@ -20,8 +20,10 @@ export interface IInvoice {
   dueDate: string | null;
   taxDetails: string | null;
   totalAmount: string | null;
+  currencyCode: string; // Must be exactly 3 uppercase letters
+  originalCurrencyCode: string | null; // Stores the original currency code, default is null
+  invoiceType: 'Faktur masuk' | 'Faktur keluar' | null;
 
-  invoiceType: 'Faktur masuk' | 'Faktur keluar' | null; // "Faktur masuk" or "Faktur keluar"
   fileName: string;
   invoiceImage: Buffer;
 
@@ -51,6 +53,8 @@ const invoiceSchema = new Schema<IInvoice>({
   dueDate: { type: String, default: null },
   taxDetails: { type: String, default: null },
   totalAmount: { type: String, default: null },
+  currencyCode: { type: String, required: true, match: /^[A-Z]{3}$/ },
+  originalCurrencyCode: { type: String, default: null },
 
   invoiceType: {
     type: String,

@@ -1,3 +1,4 @@
+// server.ts
 import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
@@ -8,6 +9,7 @@ import authRoutes from '../src/authentication/authRoutes';
 import { processInvoiceImage } from '../src/invoiceProcessor';
 import { UserModel } from '../src/database/userModel';
 import { InvoiceModel } from '../src/database/invoiceModel';
+import { cleanupTempInvoices } from './database/tempCleanup'; // New cleanup module
 
 const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_SECRET_KEY';
 
@@ -146,7 +148,19 @@ async function startServer(): Promise<void> {
     }
   });
 
-  // Endpoint to delete a temporary invoice (for Cancel or cleanup).
+  // Cleanup Endpoint: Deletes all temporary invoices for the authenticated user.
+  app.delete('/api/invoice/temp/cleanup-all', authenticate, async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = (req as any).userId;
+      const count = await cleanupTempInvoices(userId);
+      res.json({ success: true, message: `${count} temporary invoices cleaned up successfully.` });
+    } catch (err: any) {
+      console.error('[SERVER] Cleanup endpoint error:', err);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // Endpoint to delete a temporary invoice (for Cancel or individual deletion).
   app.delete('/api/invoice/temp/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
     try {
       const invoiceId = req.params.id;
@@ -167,7 +181,7 @@ async function startServer(): Promise<void> {
     try {
       const userId = (req as any).userId;
       const invoices = await InvoiceModel.find({ userId, temporary: false }).select(
-        'invoiceNumber buyerName invoiceDate dueDate invoiceType totalAmount buyerAddress buyerPhone buyerEmail sellerName'
+        'invoiceNumber buyerName invoiceDate dueDate invoiceType totalAmount buyerAddress buyerPhone buyerEmail sellerName currencyCode'
       );
       res.json({ success: true, invoices });
       return;

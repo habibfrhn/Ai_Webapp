@@ -34,8 +34,8 @@ const EditInvoiceScreen: React.FC = () => {
 
   return (
     <div className="flex h-screen">
-      {/* Left Panel for image preview (full height, half screen width) */}
-      <div className="h-screen w-1/2 bg-gray-200">
+      {/* Left Panel with updated background color */}
+      <div className="h-screen w-1/2 bg-[#f9fafb]">
         <ImagePreviewScreen invoiceId={invoiceId} />
       </div>
 

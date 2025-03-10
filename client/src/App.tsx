@@ -1,5 +1,5 @@
-// src/App.tsx
-import { Routes, Route, useLocation } from 'react-router-dom';
+// client/src/App.tsx
+import { Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -8,7 +8,6 @@ import HomeScreen from './screens/homeScreen';
 import ListScreen from './screens/ListScreen';
 import ClientInfoScreen from './screens/ClientInfoScreen';
 import HistoryScreen from './screens/HistoryScreen';
-
 import UploadScreen from './screens/UploadScreen';
 import EditInvoiceScreen from './screens/editUpdateScreen/EditInvoiceScreen';
 import EditSavedInvoiceScreen from './screens/EditSavedInvoiceScreen';
@@ -16,45 +15,22 @@ import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 
 function App() {
-  const location = useLocation();
-
-  const refreshToken = async () => {
+  // Cleanup temporary invoices on app start.
+  useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) return;
-    try {
-      const response = await fetch('http://localhost:3000/api/auth/refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await response.json();
-      if (response.ok && data.token) {
-        localStorage.setItem('token', data.token);
-      } else {
-        localStorage.removeItem('token');
-      }
-    } catch (err: unknown) {
-      console.error('Error refreshing token:', err);
+    if (token) {
+      fetch('http://localhost:3000/api/invoice/temp/cleanup-all', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => res.json())
+        .then((result) => {
+          console.info('Initial cleanup:', result.message);
+        })
+        .catch((error) => {
+          console.error('Initial cleanup error:', error);
+        });
     }
-  };
-
-  // Refresh on route change
-  useEffect(() => {
-    if (localStorage.getItem('token')) {
-      refreshToken();
-    }
-  }, [location]);
-
-  // Refresh every 5 minutes
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (localStorage.getItem('token')) {
-        refreshToken();
-      }
-    }, 5 * 60 * 1000);
-    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -65,7 +41,6 @@ function App() {
           <Route path="/invoices" element={<ListScreen />} />
           <Route path="/clients" element={<ClientInfoScreen />} />
           <Route path="/history" element={<HistoryScreen />} />
-          {/* existing routes */}
           <Route path="/upload" element={<UploadScreen />} />
           <Route path="/edit-invoice" element={<EditInvoiceScreen />} />
           <Route path="/invoice/:invoiceId" element={<EditSavedInvoiceScreen />} />

@@ -1,4 +1,6 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { TbHome, TbFileInvoice, TbUsers, TbHistory } from 'react-icons/tb';
+import { FiLogOut } from 'react-icons/fi';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,66 +18,61 @@ const Layout = ({ children }: LayoutProps) => {
   // Check if current route matches link
   const isActive = (path: string) => location.pathname === path;
 
+  const navItemClasses = (active: boolean) =>
+    `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-black ${
+      active ? 'bg-gray-200' : 'hover:bg-gray-100'
+    }`;
+
   return (
     <div className="flex">
-      {/* Sidebar (fixed, pinned to the left) */}
-      <aside className="w-64 h-screen bg-white text-gray-800 fixed top-0 left-0 flex flex-col">
-        <div className="p-4 flex-grow">
-          <h2 className="text-xl font-bold mb-4">Ai_Webapp</h2>
-          <nav className="flex flex-col gap-2 text-sm">
-            <Link
-              to="/"
-              className={`block px-3 py-2 rounded-lg transition-colors ${
-                isActive('/')
-                  ? 'bg-gray-200 text-black'
-                  : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              Dasbor
-            </Link>
-            <Link
-              to="/invoices"
-              className={`block px-3 py-2 rounded-lg transition-colors ${
-                isActive('/invoices')
-                  ? 'bg-gray-200 text-black'
-                  : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              Faktur
-            </Link>
-            <Link
-              to="/clients"
-              className={`block px-3 py-2 rounded-lg transition-colors ${
-                isActive('/clients')
-                  ? 'bg-gray-200 text-black'
-                  : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              Klien
-            </Link>
-            <Link
-              to="/history"
-              className={`block px-3 py-2 rounded-lg transition-colors ${
-                isActive('/history')
-                  ? 'bg-gray-200 text-black'
-                  : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              Riwayat
-            </Link>
-          </nav>
+      {/* Sidebar with even padding */}
+      <aside className="w-64 h-screen bg-white text-black fixed top-0 left-0 flex flex-col p-4">
+        {/* Header styled as drawer header */}
+        <div className="flex items-center gap-3 mb-4">
+          <TbHome className="w-6 h-6" />
+          <h3 className="text-xl font-semibold">Ai_Webapp</h3>
         </div>
-        <div className="p-4">
-          <button
-            onClick={handleLogout}
-            className="w-full bg-red-600 text-white hover:bg-red-700 px-3 py-2 rounded"
-          >
-            Logout
-          </button>
+        {/* Navigation links */}
+        <div className="flex-grow">
+          <ul className="menu p-0">
+            <li className="mb-2">
+              <Link to="/" className={navItemClasses(isActive('/'))}>
+                <TbHome className="text-xl" />
+                <span>Beranda</span>
+              </Link>
+            </li>
+            <li className="mb-2">
+              <Link to="/invoices" className={navItemClasses(isActive('/invoices'))}>
+                <TbFileInvoice className="text-xl" />
+                <span>Faktur</span>
+              </Link>
+            </li>
+            <li className="mb-2">
+              <Link to="/clients" className={navItemClasses(isActive('/clients'))}>
+                <TbUsers className="text-xl" />
+                <span>Klien</span>
+              </Link>
+            </li>
+            <li className="mb-2">
+              <Link to="/history" className={navItemClasses(isActive('/history'))}>
+                <TbHistory className="text-xl" />
+                <span>Riwayat</span>
+              </Link>
+            </li>
+            <li className="mb-2">
+              <a
+                onClick={handleLogout}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-red-600 hover:bg-gray-100 cursor-pointer"
+              >
+                <FiLogOut className="text-xl" />
+                <span>Sign out</span>
+              </a>
+            </li>
+          </ul>
         </div>
       </aside>
 
-      {/* Main content area, offset by sidebar width, no extra styles */}
+      {/* Main content area */}
       <main className="ml-64" style={{ background: 'none' }}>
         {children}
       </main>
