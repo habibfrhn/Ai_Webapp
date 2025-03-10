@@ -1,4 +1,3 @@
-// src/components/Layout.tsx
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 interface LayoutProps {
@@ -14,12 +13,12 @@ const Layout = ({ children }: LayoutProps) => {
     navigate('/login');
   };
 
-  // Helper to check if current route matches link
+  // Check if current route matches link
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
-      {/* Sidebar */}
+    <div className="flex">
+      {/* Sidebar (fixed, pinned to the left) */}
       <aside className="w-64 h-screen bg-white text-gray-800 fixed top-0 left-0 flex flex-col">
         <div className="p-4 flex-grow">
           <h2 className="text-xl font-bold mb-4">Ai_Webapp</h2>
@@ -76,8 +75,8 @@ const Layout = ({ children }: LayoutProps) => {
         </div>
       </aside>
 
-      {/* Main content area */}
-      <main className="ml-64 flex-1 overflow-auto bg-gray-100 text-gray-800 p-6">
+      {/* Main content area, offset by sidebar width, no extra styles */}
+      <main className="ml-64" style={{ background: 'none' }}>
         {children}
       </main>
     </div>

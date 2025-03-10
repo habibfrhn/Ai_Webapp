@@ -10,7 +10,7 @@ import ClientInfoScreen from './screens/ClientInfoScreen';
 import HistoryScreen from './screens/HistoryScreen';
 
 import UploadScreen from './screens/UploadScreen';
-import EditInvoiceScreen from './screens/EditInvoiceScreen';
+import EditInvoiceScreen from './screens/editUpdateScreen/EditInvoiceScreen';
 import EditSavedInvoiceScreen from './screens/EditSavedInvoiceScreen';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
