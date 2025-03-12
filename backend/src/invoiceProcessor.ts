@@ -77,6 +77,10 @@ Instructions:
 - For totalAmount:
   - If the currency is IDR, format the value according to Indonesian PUEBI rules (e.g., Rp1.234.567,00).
   - If the currency is not IDR, remove thousand separators and any currency symbols to extract a clean numeric value.
+- invoiceDate and dueDate must be in dd/mm/yyyy format.
+- Note that buyer-related details typically appear together in the invoice, meaning that these fields are located close to one another. In contrast, seller information—especially the company name—commonly appears at both the top and bottom of the invoice, though it may sometimes be grouped in a single section.
+- If any required field cannot be found, return its value as null.
+- If the correct currency isn't clear, please assume it's in IDR.
 
 Do not add any extra text or disclaimers.
 
