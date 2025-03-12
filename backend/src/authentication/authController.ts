@@ -1,6 +1,4 @@
-// ===============================
-// backend/src/authentication/authController.ts (FULL UPDATED CODE)
-// ===============================
+// backend/src/authentication/authController.ts
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';

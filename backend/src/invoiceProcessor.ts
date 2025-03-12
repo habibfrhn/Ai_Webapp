@@ -40,6 +40,8 @@ export async function processInvoiceImage(fileBuffer: Buffer, userCompany: strin
   try {
     const { rawText } = await extractTextFromImage(fileBuffer);
     console.log('[PROCESSOR] OCR rawText length:', rawText.length);
+    // Added console log to print the raw OCR extraction text.
+    console.log('[PROCESSOR] Raw OCR text:', rawText);
 
     const deepseekPrompt =
 `Below is the OCR text of an invoice. Extract the following fields and return valid JSON (no code blocks) with exactly these keys:

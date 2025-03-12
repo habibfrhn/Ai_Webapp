@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
+import { apiFetch } from './apiClient';
 
 import HomeScreen from './screens/homeScreen';
 import ListScreen from './screens/ListScreen';
@@ -19,9 +20,8 @@ function App() {
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      fetch('http://localhost:3000/api/invoice/temp/cleanup-all', {
+      apiFetch('http://localhost:3000/api/invoice/temp/cleanup-all', {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => res.json())
         .then((result) => {
