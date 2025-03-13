@@ -1,3 +1,4 @@
+// invoiceModel.ts
 import { Schema, model } from 'mongoose';
 
 export interface IInvoice {
@@ -20,15 +21,15 @@ export interface IInvoice {
   dueDate: string | null;
   taxDetails: string | null;
   totalAmount: string | null;
-  currencyCode: string; // Must be exactly 3 uppercase letters
-  originalCurrencyCode: string | null; // Stores the original currency code, default is null
+  currencyCode: string;
+  originalCurrencyCode: string | null;
   invoiceType: 'Faktur masuk' | 'Faktur keluar' | null;
 
   fileName: string;
-  invoiceImage: Buffer;
+  invoiceImages: Buffer[];
 
   createdAt: Date;
-  createdTime: string; // e.g. "14:05"
+  createdTime: string;
   status: 'Belum diproses' | 'Sedang diproses' | 'Telah diproses';
   temporary: boolean;
 }
@@ -63,21 +64,15 @@ const invoiceSchema = new Schema<IInvoice>({
   },
 
   fileName: { type: String, required: true },
-  invoiceImage: { type: Buffer, required: true },
+  invoiceImages: { type: [Buffer], required: true },
 
   createdAt: { type: Date, default: Date.now },
-
-  // Store time in hh:mm
   createdTime: { type: String, default: '' },
-
-  // Restrict status to 3 options, default is "Belum diproses"
   status: {
     type: String,
     enum: ['Belum diproses', 'Sedang diproses', 'Telah diproses'],
     default: 'Belum diproses',
   },
-
-  // draft/final
   temporary: { type: Boolean, default: true },
 });
 

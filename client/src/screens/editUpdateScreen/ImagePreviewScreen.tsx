@@ -1,3 +1,4 @@
+// ImagePreviewScreen.tsx
 import React, { useState, useRef, useEffect } from 'react';
 
 interface ImagePreviewScreenProps {
@@ -10,18 +11,39 @@ const ImagePreviewScreen: React.FC<ImagePreviewScreenProps> = ({ invoiceId }) =>
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const imgContainerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  const token = localStorage.getItem('token');
 
-  // Fetch the invoice image
+  // Fetch invoice details to determine the total number of pages.
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    if (!token) return;
+    fetch(`http://localhost:3000/api/invoice/${invoiceId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(response => {
+         if (!response.ok) throw new Error("Invoice not found");
+         return response.json();
+      })
+      .then(data => {
+         if (data.invoice && data.invoice.invoiceImages) {
+             setTotalPages(data.invoice.invoiceImages.length);
+         }
+      })
+      .catch(err => {
+         console.error("Failed to fetch invoice details:", err);
+      });
+  }, [invoiceId, token]);
+
+  // Fetch the current page image.
+  useEffect(() => {
     if (!token) return;
 
     let objectUrl: string | null = null;
-
-    fetch(`http://localhost:3000/api/invoice/temp/${invoiceId}/image`, {
+    fetch(`http://localhost:3000/api/invoice/temp/${invoiceId}/image?page=${currentPage}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(response => {
@@ -43,9 +65,9 @@ const ImagePreviewScreen: React.FC<ImagePreviewScreenProps> = ({ invoiceId }) =>
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [invoiceId]);
+  }, [invoiceId, currentPage, token]);
 
-  // Compute initial scale and translation on image load
+  // Calculate initial scale and translation for the image.
   const handleImageLoad = () => {
     if (!imgContainerRef.current || !imgRef.current) return;
 
@@ -69,7 +91,6 @@ const ImagePreviewScreen: React.FC<ImagePreviewScreenProps> = ({ invoiceId }) =>
     setTranslate({ x: offsetX, y: offsetY });
   };
 
-  // Dragging logic (only for left-click)
   const handleMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -89,42 +110,60 @@ const ImagePreviewScreen: React.FC<ImagePreviewScreenProps> = ({ invoiceId }) =>
     setDragging(false);
   };
 
-  // Zoom with mouse wheel on the container
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
     setScale(prev => Math.max(0.5, prev + delta));
   };
 
+  const goToPrevious = () => {
+    setCurrentPage(prev => Math.max(prev - 1, 0));
+  };
+
+  const goToNext = () => {
+    setCurrentPage(prev => Math.min(prev + 1, totalPages - 1));
+  };
+
   return (
-    <div
-      ref={imgContainerRef}
-      onWheel={handleWheel}
-      style={{
-        width: '100%',
-        height: '100%',
-        overflow: 'hidden',
-        outline: 'none',
-      }}
-    >
-      {imageSrc ? (
-        <img
-          ref={imgRef}
-          src={imageSrc}
-          alt="Invoice"
-          onLoad={handleImageLoad}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          style={{
-            transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
-            cursor: dragging ? 'grabbing' : 'grab',
-            transition: 'transform 0.1s',
-            outline: 'none',
-          }}
-        />
-      ) : (
-        <p>Loading invoice image...</p>
+    <div style={{ position: 'relative', height: '100%' }}>
+      <div
+        ref={imgContainerRef}
+        onWheel={handleWheel}
+        style={{
+          width: '100%',
+          height: '100%',
+          overflow: 'hidden',
+          outline: 'none',
+        }}
+      >
+        {imageSrc ? (
+          <img
+            ref={imgRef}
+            src={imageSrc}
+            alt={`Invoice Page ${currentPage + 1}`}
+            onLoad={handleImageLoad}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            style={{
+              transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
+              cursor: dragging ? 'grabbing' : 'grab',
+              transition: 'transform 0.1s',
+              outline: 'none',
+            }}
+          />
+        ) : (
+          <p>Loading invoice image...</p>
+        )}
+      </div>
+      {totalPages > 1 && (
+        <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, textAlign: 'center' }}>
+          <button onClick={goToPrevious} disabled={currentPage === 0}>Previous</button>
+          <span style={{ margin: '0 10px' }}>
+            Page {currentPage + 1} of {totalPages}
+          </span>
+          <button onClick={goToNext} disabled={currentPage === totalPages - 1}>Next</button>
+        </div>
       )}
     </div>
   );

@@ -1,3 +1,4 @@
+// UploadScreen.tsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,6 +16,14 @@ const UploadScreen = () => {
       return;
     }
     const file = fileInput.files[0];
+
+    // Only allow PDF, PNG, and JPG/JPEG files
+    const allowedTypes = ["application/pdf", "image/png", "image/jpeg"];
+    if (!allowedTypes.includes(file.type)) {
+      setStatus("Unsupported file format. Please upload a PDF, PNG, or JPG file.");
+      return;
+    }
+
     const formData = new FormData();
     formData.append('invoiceImage', file);
     const token = localStorage.getItem('token');
@@ -50,7 +59,8 @@ const UploadScreen = () => {
     <div>
       <h2 className="text-2xl mb-4">Upload Invoice</h2>
       <form onSubmit={handleSubmit}>
-        <input type="file" name="invoiceFile" accept="image/*" required className="mb-4" />
+        {/* Restrict accepted file types */}
+        <input type="file" name="invoiceFile" accept="application/pdf, image/png, image/jpeg" required className="mb-4" />
         <button type="submit" className="px-4 py-2 bg-blue-600 text-white">Upload</button>
       </form>
       {status && <div className="mt-2">{status}</div>}

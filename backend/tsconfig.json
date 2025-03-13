@@ -2,9 +2,8 @@
   "compilerOptions": {
     "target": "ES2016",
     "module": "commonjs",
-    // If you never build to "dist", you can omit rootDir/outDir or set them anyway.
-    // "rootDir": "src",
-    // "outDir": "dist",
+    "rootDir": "src",      
+    "outDir": "dist",     
     "esModuleInterop": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
