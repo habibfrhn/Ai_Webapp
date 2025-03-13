@@ -1,6 +1,9 @@
-import { extractTextFromImage } from './tesseract';
-import { callDeepSeek } from './artificialBrain';
+// backend/invoiceProcessor.ts
+
+import callOCRAgent from './ocrAgent';
 import { convertCurrency } from './currencyRate';
+
+// Removed previous Tesseract and DeepSeek imports.
 
 // Helper to remove code fences if present.
 function stripCodeBlocks(text: string): string {
@@ -29,7 +32,7 @@ function parseIDR(amountStr: string): number {
 }
 
 /**
- * Processes the invoice image.
+ * Processes the invoice image using the OCR Agent.
  * @param fileBuffer - Buffer of the uploaded image.
  * @param userCompany - The company name of the logged in user.
  * @returns An object with a success flag and extracted data.
@@ -38,32 +41,30 @@ export async function processInvoiceImage(fileBuffer: Buffer, userCompany: strin
   console.log('[PROCESSOR] Starting invoice processing for buffer');
 
   try {
-    const { rawText } = await extractTextFromImage(fileBuffer);
-    console.log('[PROCESSOR] OCR rawText length:', rawText.length);
-    // Added console log to print the raw OCR extraction text.
-    console.log('[PROCESSOR] Raw OCR text:', rawText);
+    // Convert the fileBuffer to a base64 data URL.
+    const imageDataUrl = `data:image/jpeg;base64,${fileBuffer.toString('base64')}`;
 
-    const deepseekPrompt =
-`Below is the OCR text of an invoice. Extract the following fields and return valid JSON (no code blocks) with exactly these keys:
-
+    // Build the prompt text to extract invoice details.
+    const promptText = `
+Below is an invoice image. Extract the following fields and return valid JSON (no code blocks) with exactly these keys:
 {
-  "sellerName": …,
-  "sellerAddress": …,
-  "sellerPhone": …,
-  "sellerEmail": …,
-  "sellerTaxId": …,
-  "buyerName": …,
-  "buyerAddress": …,
-  "buyerPhone": …,
-  "buyerEmail": …,
-  "buyerTaxId": …,
-  "invoiceNumber": …,
-  "invoiceDate": …,
-  "dueDate": …,
-  "taxDetails": …,
-  "totalAmount": …,
-  "currencyCode": …,
-  "invoiceType": …
+  "sellerName": ...,
+  "sellerAddress": ...,
+  "sellerPhone": ...,
+  "sellerEmail": ...,
+  "sellerTaxId": ...,
+  "buyerName": ...,
+  "buyerAddress": ...,
+  "buyerPhone": ...,
+  "buyerEmail": ...,
+  "buyerTaxId": ...,
+  "invoiceNumber": ...,
+  "invoiceDate": ...,
+  "dueDate": ...,
+  "taxDetails": ...,
+  "totalAmount": ...,
+  "currencyCode": ...,
+  "invoiceType": ...
 }
 
 Invoice categorization:
@@ -76,43 +77,45 @@ Instructions:
   - If a tax percentage is provided, output it in the format "10%".
   - If only a tax amount is provided, calculate the percentage as (tax amount / total amount * 100)% and append the "%" symbol.
   - If neither is provided, set taxDetails to null.
+  - If there is more than 1 tax detail in a section, combine them into a single string.
 - For totalAmount:
   - If the currency is IDR, format the value according to Indonesian PUEBI rules (e.g., Rp1.234.567,00).
   - If the currency is not IDR, remove thousand separators and any currency symbols to extract a clean numeric value.
-- invoiceDate and dueDate must be in dd/mm/yyyy format.
+- invoiceDate and dueDate must be in dd/mm/yyyy format, for single digit case add "0" before the number for example: "1" to "01".
 - Note that buyer-related details typically appear together in the invoice, meaning that these fields are located close to one another. In contrast, seller information—especially the company name—commonly appears at both the top and bottom of the invoice, though it may sometimes be grouped in a single section.
 - If any required field cannot be found, return its value as null.
 - If the correct currency isn't clear, please assume it's in IDR.
+- The address should be in a single line of string with this format: "Street, City, Postal Code, Country".
 
 Do not add any extra text or disclaimers.
+    `;
 
-OCR TEXT:
-${rawText}`;
+    // Call the OCR Agent component with both text prompt and image input.
+    const ocrResponse = await callOCRAgent({
+      text: promptText,
+      imageUrl: imageDataUrl,
+    });
+    console.log('[PROCESSOR] OCR Agent response:', ocrResponse);
 
-    console.log('[PROCESSOR] Sending prompt to DeepSeek...');
-    const deepseekResult = await callDeepSeek(deepseekPrompt);
-    console.log('[PROCESSOR] Raw DeepSeek output:', deepseekResult);
+    // Extract the message content from the OCR Agent response.
+    const messageContent = ocrResponse?.choices?.[0]?.message?.content;
+    if (!messageContent) {
+      throw new Error('OCR Agent response does not contain message content.');
+    }
+    console.log('[PROCESSOR] OCR Agent message content:', messageContent);
 
-    const cleaned = stripCodeBlocks(deepseekResult);
-    console.log('[PROCESSOR] Cleaned DeepSeek output:', cleaned);
+    // Remove any code fences if present in the message content.
+    const cleanedResponse = stripCodeBlocks(messageContent);
 
     let parsedData;
     try {
-      parsedData = JSON.parse(cleaned);
-      console.log('[PROCESSOR] Parsed JSON from DeepSeek output:', parsedData);
+      parsedData = JSON.parse(cleanedResponse);
+      console.log('[PROCESSOR] Parsed JSON from OCR Agent output:', parsedData);
     } catch (err) {
-      console.warn('[PROCESSOR] Could not parse JSON. Returning raw text instead.');
-      parsedData = { rawDeepSeekOutput: deepseekResult };
+      console.warn('[PROCESSOR] Could not parse JSON. Returning raw response instead.');
+      parsedData = { rawOCRAgentOutput: messageContent };
     }
     
-    // Log the extracted currencyCode from DeepSeek
-    if (parsedData.currencyCode) {
-      console.log('[PROCESSOR] Extracted currencyCode:', parsedData.currencyCode);
-      // Log the conversion rate for 1 unit of the extracted currency to IDR
-      const conversionRate = await convertCurrency(parsedData.currencyCode, "IDR", 1);
-      console.log(`[PROCESSOR] Conversion rate: 1 ${parsedData.currencyCode} = ${conversionRate} IDR`);
-    }
-
     // Process the totalAmount and currencyCode if available.
     if (parsedData.currencyCode && parsedData.totalAmount) {
       console.log('[PROCESSOR] Found currencyCode and totalAmount:', parsedData.currencyCode, parsedData.totalAmount);
@@ -138,7 +141,7 @@ ${rawText}`;
         const numericValue = parseFloat(amountString);
         console.log('[PROCESSOR] Numeric value extracted:', numericValue);
         
-        // Convert the amount into IDR via Frankfurter API (using the convertCurrency function).
+        // Convert the amount into IDR via the convertCurrency function.
         const convertedValue = await convertCurrency(parsedData.currencyCode, "IDR", numericValue);
         console.log('[PROCESSOR] Converted value in IDR:', convertedValue);
         
@@ -165,6 +168,7 @@ ${rawText}`;
       success: true,
       data: parsedData,
     };
+
   } catch (error: any) {
     console.error('[PROCESSOR ERROR]', error);
     return {
