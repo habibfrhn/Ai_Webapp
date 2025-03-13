@@ -72,7 +72,9 @@ Invoice categorization:
 - Otherwise, set it to "Faktur masuk".
 
 Instructions:
-- Identify and return the 3-letter currency code present in the invoice.
+- Identify and return the 3-letter currency code present in the invoice into the "currencyCode".
+    -"currencyCode" should be in 3-letter currency in uppercase only.
+    -"Rp" is "IDR"
 - For taxDetails:
   - If a tax percentage is provided, output it in the format "10%".
   - If only a tax amount is provided, calculate the percentage as (tax amount / total amount * 100)% and append the "%" symbol.
@@ -81,7 +83,7 @@ Instructions:
 - For totalAmount:
   - If the currency is IDR, format the value according to Indonesian PUEBI rules (e.g., Rp1.234.567,00).
   - If the currency is not IDR, remove thousand separators and any currency symbols to extract a clean numeric value.
-- invoiceDate and dueDate must be in dd/mm/yyyy format, for single digit case add "0" before the number for example: "1" to "01".
+- "invoiceDate" and "dueDate" must be in dd/mm/yyyy format, for single digit case add "0" before the number for example: "1" to "01".
 - Note that buyer-related details typically appear together in the invoice, meaning that these fields are located close to one another. In contrast, seller information—especially the company name—commonly appears at both the top and bottom of the invoice, though it may sometimes be grouped in a single section.
 - If any required field cannot be found, return its value as null.
 - If the correct currency isn't clear, please assume it's in IDR.
