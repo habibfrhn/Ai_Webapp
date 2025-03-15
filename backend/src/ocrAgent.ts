@@ -1,22 +1,21 @@
-// backend/ocrAgent.ts
-
-// If you're using Node 18+, the global fetch is available. Otherwise, install node-fetch.
+// ocrAgent.ts
 import fetch from 'node-fetch';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const HTTP_REFERER = process.env.SITE_URL || ''; // Optional: your site URL for rankings on openrouter.ai
-const SITE_NAME = process.env.SITE_NAME || ''; // Optional: your site name for rankings on openrouter.ai
-const MODEL = 'google/gemma-3-27b-it:free'; // Adjust the model if needed
+const HTTP_REFERER = process.env.SITE_URL || '';
+const SITE_NAME = process.env.SITE_NAME || '';
+const MODEL = 'google/gemma-3-27b-it:free';
 
 export interface OCRAgentInput {
   text?: string;
   imageUrl?: string;
+  imageUrls?: string[];
 }
 
 /**
- * Calls the OpenRouter API with the provided text and/or imageUrl input.
- * @param input Object containing optional text and imageUrl.
+ * Calls the OpenRouter API with the provided text and/or imageUrl(s) input.
+ * @param input Object containing optional text and imageUrl or imageUrls.
  * @returns The API response JSON.
  * @throws Error if the API key is missing or the request fails.
  */
@@ -34,12 +33,17 @@ export async function callOCRAgent(input: OCRAgentInput): Promise<any> {
     });
   }
 
-  if (input.imageUrl) {
+  if (input.imageUrls && Array.isArray(input.imageUrls)) {
+    for (const url of input.imageUrls) {
+      messageContent.push({
+        type: 'image_url',
+        image_url: { url },
+      });
+    }
+  } else if (input.imageUrl) {
     messageContent.push({
       type: 'image_url',
-      image_url: {
-        url: input.imageUrl,
-      },
+      image_url: { url: input.imageUrl },
     });
   }
 
@@ -62,7 +66,6 @@ export async function callOCRAgent(input: OCRAgentInput): Promise<any> {
     'Content-Type': 'application/json',
   };
 
-  // Optionally add site details if provided
   if (HTTP_REFERER) {
     headers['HTTP-Referer'] = HTTP_REFERER;
   }

@@ -53,27 +53,23 @@ async function startServer(): Promise<void> {
   const storage = multer.memoryStorage();
   const upload = multer({ storage });
 
-  // Invoice upload route (creates a temporary invoice).
+  // Updated Invoice upload route to support multiple images and grouping mode.
   app.post(
     '/api/invoice/upload',
     authenticate,
-    upload.single('invoiceImage'),
+    upload.array('invoiceImage'),
     async (req: Request, res: Response): Promise<void> => {
       console.log('[SERVER] /api/invoice/upload called');
       try {
-        if (!req.file) {
+        const files = req.files as Express.Multer.File[];
+        if (!files || files.length === 0) {
           console.warn('[SERVER] No file in request');
           res.status(400).json({ success: false, message: 'No file uploaded' });
           return;
         }
-        console.log(`[SERVER] File uploaded: ${req.file.originalname} received in memory`);
 
-        // Allow only PDF, PNG, and JPEG files.
-        const allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg'];
-        if (!allowedMimeTypes.includes(req.file.mimetype)) {
-          res.status(400).json({ success: false, message: 'Unsupported file format. Please upload a PDF, PNG, or JPG file.' });
-          return;
-        }
+        // Check grouping mode: "multiple" means separate invoices; default is single invoice.
+        const invoiceGrouping = req.body.invoiceGrouping === 'multiple' ? 'multiple' : 'single';
 
         const user = await UserModel.findById((req as any).userId);
         if (!user) {
@@ -82,84 +78,150 @@ async function startServer(): Promise<void> {
         }
         const userCompany = user.companyName;
 
-        let invoiceImageBuffers: Buffer[];
-        let extractionBuffer: Buffer;
+        // Helper function to create an invoice record.
+        async function createInvoiceRecord(
+          processedData: any,
+          invoiceImageBuffers: Buffer[],
+          originalFileName: string
+        ) {
+          const now = new Date();
+          const hh = String(now.getHours()).padStart(2, '0');
+          const mm = String(now.getMinutes()).padStart(2, '0');
+          const createdTime = `${hh}:${mm}`;
+          const newInvoice = new InvoiceModel({
+            ...processedData,
+            userId: (req as any).userId,
+            temporary: true,
+            invoiceImages: invoiceImageBuffers,
+            fileName: originalFileName,
+            status: 'Belum diproses',
+            createdTime,
+          });
+          await newInvoice.save();
+          return newInvoice;
+        }
 
-        if (req.file.mimetype === 'application/pdf') {
-          // Write PDF buffer to a temporary file.
-          const tempFilePath = path.join(os.tmpdir(), `${Date.now()}-${req.file.originalname}`);
-          fs.writeFileSync(tempFilePath, req.file.buffer);
-          console.log("Temporary PDF file created at:", tempFilePath);
+        if (invoiceGrouping === 'single') {
+          // All files belong to one invoice.
+          let invoiceImageBuffers: Buffer[] = [];
+          let extractionBuffer: Buffer;
 
-          try {
-            // Convert the PDF into an array of image buffers.
-            const imageBuffers = await convertPDFToImages(tempFilePath);
-            console.log("Converted PDF to", imageBuffers.length, "images.");
-            if (imageBuffers.length === 0) {
-              throw new Error("PDF conversion returned no images");
+          // If a PDF is uploaded, we expect only one file.
+          if (files.length === 1 && files[0].mimetype === 'application/pdf') {
+            const file = files[0];
+            const tempFilePath = path.join(os.tmpdir(), `${Date.now()}-${file.originalname}`);
+            fs.writeFileSync(tempFilePath, file.buffer);
+            console.log("Temporary PDF file created at:", tempFilePath);
+            try {
+              const imageBuffers = await convertPDFToImages(tempFilePath);
+              if (imageBuffers.length === 0) {
+                throw new Error("PDF conversion returned no images");
+              }
+              extractionBuffer = await optimizeImage(imageBuffers[0]);
+              invoiceImageBuffers = await Promise.all(
+                imageBuffers.map(async (buf) => await optimizeImage(buf))
+              );
+            } catch (error: any) {
+              console.error("Error during PDF conversion:", error);
+              res.status(500).json({ success: false, message: "PDF conversion failed: " + error.message });
+              return;
+            } finally {
+              try {
+                fs.unlinkSync(tempFilePath);
+                console.log("Temporary file removed:", tempFilePath);
+              } catch (e) {
+                console.error("Error cleaning up temporary file:", e);
+              }
             }
-            // Use the first page for OCR extraction.
-            extractionBuffer = await optimizeImage(imageBuffers[0]);
-            // Optimize all pages for storage.
+          } else {
+            // For multiple image files, optimize each and use the first for OCR extraction.
             invoiceImageBuffers = await Promise.all(
-              imageBuffers.map(async (buf) => {
-                const optimized = await optimizeImage(buf);
-                return optimized;
+              files.map(async (file) => {
+                if (!['image/png', 'image/jpeg'].includes(file.mimetype)) {
+                  throw new Error('Unsupported file format in single invoice mode.');
+                }
+                return await optimizeImage(file.buffer);
               })
             );
-          } catch (error: any) {
-            console.error("Error during PDF conversion:", error);
-            res.status(500).json({ success: false, message: "PDF conversion failed: " + error.message });
-            return;
-          } finally {
-            // Cleanup the temporary file.
-            try {
-              fs.unlinkSync(tempFilePath);
-              console.log("Temporary file removed:", tempFilePath);
-            } catch (e) {
-              console.error("Error cleaning up temporary file:", e);
-            }
+            extractionBuffer = invoiceImageBuffers[0];
           }
+
+          const result = await processInvoiceImage(extractionBuffer, userCompany);
+          if (!result.success) {
+            console.error('[SERVER] Invoice processing failed:', result.message);
+            res.status(500).json({ success: false, message: result.message });
+            return;
+          }
+
+          const newInvoice = await createInvoiceRecord(result.data, invoiceImageBuffers, files[0].originalname);
+          res.json({
+            success: true,
+            invoiceId: newInvoice._id,
+            extractedData: result.data,
+          });
         } else {
-          // For image files, optimize and wrap in an array.
-          const optimizedBuffer = await optimizeImage(req.file.buffer);
-          extractionBuffer = optimizedBuffer;
-          invoiceImageBuffers = [optimizedBuffer];
+          // "multiple" mode: each file is processed as a separate invoice.
+          let invoicesArray: any[] = [];
+          for (const file of files) {
+            const allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg'];
+            if (!allowedMimeTypes.includes(file.mimetype)) {
+              console.warn(`[SERVER] Unsupported file format for file ${file.originalname}`);
+              continue;
+            }
+
+            let invoiceImageBuffers: Buffer[] = [];
+            let extractionBuffer: Buffer;
+
+            if (file.mimetype === 'application/pdf') {
+              const tempFilePath = path.join(os.tmpdir(), `${Date.now()}-${file.originalname}`);
+              fs.writeFileSync(tempFilePath, file.buffer);
+              console.log("Temporary PDF file created at:", tempFilePath);
+              try {
+                const imageBuffers = await convertPDFToImages(tempFilePath);
+                if (imageBuffers.length === 0) {
+                  throw new Error("PDF conversion returned no images");
+                }
+                extractionBuffer = await optimizeImage(imageBuffers[0]);
+                invoiceImageBuffers = await Promise.all(
+                  imageBuffers.map(async (buf) => await optimizeImage(buf))
+                );
+              } catch (error: any) {
+                console.error("Error during PDF conversion for file", file.originalname, error);
+                continue;
+              } finally {
+                try {
+                  fs.unlinkSync(tempFilePath);
+                  console.log("Temporary file removed:", tempFilePath);
+                } catch (e) {
+                  console.error("Error cleaning up temporary file:", e);
+                }
+              }
+            } else {
+              const optimizedBuffer = await optimizeImage(file.buffer);
+              extractionBuffer = optimizedBuffer;
+              invoiceImageBuffers = [optimizedBuffer];
+            }
+
+            const result = await processInvoiceImage(extractionBuffer, userCompany);
+            if (!result.success) {
+              console.error('[SERVER] Invoice processing failed for file', file.originalname, result.message);
+              continue;
+            }
+
+            const newInvoice = await createInvoiceRecord(result.data, invoiceImageBuffers, file.originalname);
+            invoicesArray.push({ invoiceId: newInvoice._id, extractedData: result.data });
+          }
+
+          if (invoicesArray.length === 0) {
+            res.status(500).json({ success: false, message: 'No invoices were processed successfully.' });
+            return;
+          }
+
+          res.json({
+            success: true,
+            invoices: invoicesArray,
+          });
         }
-
-        // Process the invoice image using the first image buffer.
-        const result = await processInvoiceImage(extractionBuffer, userCompany);
-        if (!result.success) {
-          console.error('[SERVER] Invoice processing failed:', result.message);
-          res.status(500).json({ success: false, message: result.message });
-          return;
-        }
-
-        // Build createdTime in hh:mm format.
-        const now = new Date();
-        const hh = String(now.getHours()).padStart(2, '0');
-        const mm = String(now.getMinutes()).padStart(2, '0');
-        const createdTime = `${hh}:${mm}`;
-
-        // Create a temporary invoice record storing all page images.
-        const newInvoice = new InvoiceModel({
-          ...result.data,
-          userId: (req as any).userId,
-          temporary: true,
-          invoiceImages: invoiceImageBuffers,
-          fileName: req.file.originalname,
-          status: 'Belum diproses',
-          createdTime,
-        });
-        await newInvoice.save();
-        console.log("Invoice record created with ID:", newInvoice._id);
-
-        res.json({
-          success: true,
-          invoiceId: newInvoice._id,
-          extractedData: result.data,
-        });
-        return;
       } catch (err: any) {
         console.error('[SERVER ERROR]', err);
         res.status(500).json({ success: false, message: err.message });
@@ -167,7 +229,7 @@ async function startServer(): Promise<void> {
     }
   );
 
-  // Endpoint to finalize the invoice.
+  // Other endpoints remain unchanged.
   app.post('/api/invoice/save', authenticate, async (req: Request, res: Response): Promise<void> => {
     console.log('[SERVER] /api/invoice/save called');
     try {
@@ -189,7 +251,6 @@ async function startServer(): Promise<void> {
     }
   });
 
-  // Endpoint to serve a specific page of the temporary invoice image.
   app.get('/api/invoice/temp/:id/image', authenticate, async (req: Request, res: Response): Promise<void> => {
     try {
       const invoice = await InvoiceModel.findById(req.params.id);
@@ -209,7 +270,6 @@ async function startServer(): Promise<void> {
     }
   });
 
-  // Additional endpoints (cleanup, delete, list, etc.) remain unchanged.
   app.delete('/api/invoice/temp/cleanup-all', authenticate, async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = (req as any).userId;

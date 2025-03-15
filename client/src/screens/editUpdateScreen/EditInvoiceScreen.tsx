@@ -1,3 +1,4 @@
+// EditInvoiceScreen.tsx
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 import ImagePreviewScreen from './ImagePreviewScreen';
@@ -22,29 +23,54 @@ export interface InvoiceData {
   invoiceType?: 'Faktur masuk' | 'Faktur keluar' | '';
 }
 
+interface InvoiceStateSingle {
+  invoiceId: string;
+  extractedData: InvoiceData;
+}
+
+interface InvoiceStateMultiple {
+  invoices: { invoiceId: string; extractedData: InvoiceData }[];
+}
+
+type LocationState = InvoiceStateSingle | InvoiceStateMultiple;
+
 const EditInvoiceScreen: React.FC = () => {
-  const { state } = useLocation() as {
-    state: {
-      invoiceId: string;
-      extractedData: InvoiceData;
-    };
-  };
+  const { state } = useLocation() as { state: LocationState };
 
-  const { invoiceId, extractedData } = state;
-
-  return (
-    <div className="flex h-screen">
-      {/* Left Panel with updated background color */}
-      <div className="h-screen w-1/2 bg-[#f9fafb]">
-        <ImagePreviewScreen invoiceId={invoiceId} />
+  if ('invoices' in state && Array.isArray(state.invoices)) {
+    // Multiple invoices mode: render a list of invoice edit views.
+    return (
+      <div>
+        {state.invoices.map((invoice) => (
+          <div key={invoice.invoiceId} className="flex h-screen border-b">
+            {/* Left Panel */}
+            <div className="h-screen w-1/2 bg-[#f9fafb]">
+              <ImagePreviewScreen invoiceId={invoice.invoiceId} />
+            </div>
+            {/* Right Panel */}
+            <div className="flex-1">
+              <UploadFormScreen invoiceId={invoice.invoiceId} extractedData={invoice.extractedData} />
+            </div>
+          </div>
+        ))}
       </div>
-
-      {/* Right Panel for form upload */}
-      <div className="flex-1">
-        <UploadFormScreen invoiceId={invoiceId} extractedData={extractedData} />
+    );
+  } else {
+    // Single invoice mode.
+    const { invoiceId, extractedData } = state as InvoiceStateSingle;
+    return (
+      <div className="flex h-screen">
+        {/* Left Panel */}
+        <div className="h-screen w-1/2 bg-[#f9fafb]">
+          <ImagePreviewScreen invoiceId={invoiceId} />
+        </div>
+        {/* Right Panel */}
+        <div className="flex-1">
+          <UploadFormScreen invoiceId={invoiceId} extractedData={extractedData} />
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 };
 
 export default EditInvoiceScreen;

@@ -1,4 +1,3 @@
-// ImagePreviewScreen.tsx
 import React, { useState, useRef, useEffect } from 'react';
 
 interface ImagePreviewScreenProps {
@@ -13,35 +12,36 @@ const ImagePreviewScreen: React.FC<ImagePreviewScreenProps> = ({ invoiceId }) =>
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(false);
 
   const imgContainerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const token = localStorage.getItem('token');
 
-  // Fetch invoice details to determine the total number of pages.
+  // Fetch invoice details to determine total number of pages.
   useEffect(() => {
     if (!token) return;
     fetch(`http://localhost:3000/api/invoice/${invoiceId}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(response => {
-         if (!response.ok) throw new Error("Invoice not found");
-         return response.json();
+        if (!response.ok) throw new Error("Invoice not found");
+        return response.json();
       })
       .then(data => {
-         if (data.invoice && data.invoice.invoiceImages) {
-             setTotalPages(data.invoice.invoiceImages.length);
-         }
+        if (data.invoice && data.invoice.invoiceImages) {
+          setTotalPages(data.invoice.invoiceImages.length);
+        }
       })
       .catch(err => {
-         console.error("Failed to fetch invoice details:", err);
+        console.error("Failed to fetch invoice details:", err);
       });
   }, [invoiceId, token]);
 
-  // Fetch the current page image.
+  // Fetch the image for the current page.
   useEffect(() => {
     if (!token) return;
-
+    setLoading(true);
     let objectUrl: string | null = null;
     fetch(`http://localhost:3000/api/invoice/temp/${invoiceId}/image?page=${currentPage}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -55,9 +55,11 @@ const ImagePreviewScreen: React.FC<ImagePreviewScreenProps> = ({ invoiceId }) =>
       .then(blob => {
         objectUrl = URL.createObjectURL(blob);
         setImageSrc(objectUrl);
+        setLoading(false);
       })
       .catch(err => {
         console.error('Failed to load image:', err);
+        setLoading(false);
       });
 
     return () => {
@@ -67,30 +69,24 @@ const ImagePreviewScreen: React.FC<ImagePreviewScreenProps> = ({ invoiceId }) =>
     };
   }, [invoiceId, currentPage, token]);
 
-  // Calculate initial scale and translation for the image.
+  // Calculate the initial scale and translation once the image loads.
   const handleImageLoad = () => {
     if (!imgContainerRef.current || !imgRef.current) return;
-
     const containerRect = imgContainerRef.current.getBoundingClientRect();
-    const containerWidth = containerRect.width;
-    const containerHeight = containerRect.height;
-
     const naturalWidth = imgRef.current.naturalWidth;
     const naturalHeight = imgRef.current.naturalHeight;
-
-    const scaleToFitWidth = containerWidth / naturalWidth;
-    const scaleToFitHeight = containerHeight / naturalHeight;
+    const scaleToFitWidth = containerRect.width / naturalWidth;
+    const scaleToFitHeight = containerRect.height / naturalHeight;
     const initialScale = Math.min(scaleToFitWidth, scaleToFitHeight);
-
     const imageDisplayWidth = naturalWidth * initialScale;
     const imageDisplayHeight = naturalHeight * initialScale;
-    const offsetX = (containerWidth - imageDisplayWidth) / 2;
-    const offsetY = (containerHeight - imageDisplayHeight) / 2;
-
+    const offsetX = (containerRect.width - imageDisplayWidth) / 2;
+    const offsetY = (containerRect.height - imageDisplayHeight) / 2;
     setScale(initialScale);
     setTranslate({ x: offsetX, y: offsetY });
   };
 
+  // Handlers for dragging the image.
   const handleMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -110,12 +106,14 @@ const ImagePreviewScreen: React.FC<ImagePreviewScreenProps> = ({ invoiceId }) =>
     setDragging(false);
   };
 
+  // Zoom in/out with mouse wheel.
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
     setScale(prev => Math.max(0.5, prev + delta));
   };
 
+  // Navigation functions.
   const goToPrevious = () => {
     setCurrentPage(prev => Math.max(prev - 1, 0));
   };
@@ -134,9 +132,14 @@ const ImagePreviewScreen: React.FC<ImagePreviewScreenProps> = ({ invoiceId }) =>
           height: '100%',
           overflow: 'hidden',
           outline: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
         }}
       >
-        {imageSrc ? (
+        {loading ? (
+          <p>Loading invoice image...</p>
+        ) : imageSrc ? (
           <img
             ref={imgRef}
             src={imageSrc}
@@ -149,11 +152,11 @@ const ImagePreviewScreen: React.FC<ImagePreviewScreenProps> = ({ invoiceId }) =>
               transform: `translate(${translate.x}px, ${translate.y}px) scale(${scale})`,
               cursor: dragging ? 'grabbing' : 'grab',
               transition: 'transform 0.1s',
-              outline: 'none',
+              outline: 'none'
             }}
           />
         ) : (
-          <p>Loading invoice image...</p>
+          <p>No image available</p>
         )}
       </div>
       {totalPages > 1 && (

@@ -6,9 +6,19 @@
  * @returns The converted amount as a number.
  */
 export async function convertCurrency(from: string, to: string, amount: number): Promise<number> {
-    const response = await fetch(`https://api.frankfurter.dev/v1/latest?base=${from}&symbols=${to}`);
-    const data = await response.json();
-    const rate = data.rates[to];
-    return amount * rate;
+  // Updated API endpoint and parameters.
+  const response = await fetch(`https://api.frankfurter.app/latest?from=${from}&to=${to}`);
+  
+  if (!response.ok) {
+    throw new Error(`Currency conversion API responded with status ${response.status}`);
   }
   
+  const data = await response.json();
+  
+  if (!data.rates || data.rates[to] === undefined) {
+    throw new Error(`Conversion rate for ${to} not found in API response`);
+  }
+  
+  const rate = data.rates[to];
+  return amount * rate;
+}

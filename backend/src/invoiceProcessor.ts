@@ -1,17 +1,20 @@
-// backend/invoiceProcessor.ts
+// invoiceProcessor.ts
 
 import callOCRAgent from './ocrAgent';
 import { convertCurrency } from './currencyRate';
 
-// Removed previous Tesseract and DeepSeek imports.
-
-// Helper to remove code fences if present.
+/**
+ * Helper to remove code fences if present.
+ */
 function stripCodeBlocks(text: string): string {
   return text.replace(/```(\w+)?\s*([\s\S]*?)```/g, '$2').trim();
 }
 
-// Helper to format a number into Indonesian Rupiah (PUEBI rules) with dot as thousand separators
-// and a comma before the cents, for example: "Rp1.234.567,00"
+/**
+ * Helper to format a number into Indonesian Rupiah (PUEBI rules)
+ * with dot as thousand separators and a comma before the cents.
+ * For example: "Rp1.234.567,00"
+ */
 function formatRupiah(amount: number): string {
   const formatted = new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -22,7 +25,9 @@ function formatRupiah(amount: number): string {
   return formatted;
 }
 
-// Helper to parse an Indonesian Rupiah formatted string (e.g., "Rp1.234.567,00") into a number.
+/**
+ * Helper to parse an Indonesian Rupiah formatted string (e.g., "Rp1.234.567,00") into a number.
+ */
 function parseIDR(amountStr: string): number {
   let cleaned = amountStr.replace(/Rp|\s/g, '');
   cleaned = cleaned.replace(/\./g, '');
@@ -83,8 +88,8 @@ Instructions:
 - For totalAmount:
   - If the currency is IDR, format the value according to Indonesian PUEBI rules (e.g., Rp1.234.567,00).
   - If the currency is not IDR, remove thousand separators and any currency symbols to extract a clean numeric value.
-- "invoiceDate" and "dueDate" must be in dd/mm/yyyy format, for single digit case add "0" before the number for example: "1" to "01".
-- Extract the "invoiceDate" and "dueDate" from the invoice. If either date cannot be found, return a value of null and set the corresponding date to "00/00/0000". Additionally, if either date is present but formatted as "xx/xx/xxxx" (indicating missing or placeholder information), override it by setting the date to "00/00/0000" or in similar other cases.
+- "invoiceDate" and "dueDate" must be in dd/mm/yyyy format, for single digit case add "0" before the number (e.g., "1" becomes "01").
+- Extract the "invoiceDate" and "dueDate" from the invoice. If either date cannot be found, return a value of null and set the corresponding date to "00/00/0000". Additionally, if either date is present but formatted as "xx/xx/xxxx" (indicating missing or placeholder information), override it by setting the date to "00/00/0000" or similar.
 - Note that buyer-related details typically appear together in the invoice, meaning that these fields are located close to one another. In contrast, seller information—especially the company name—commonly appears at both the top and bottom of the invoice, though it may sometimes be grouped in a single section.
 - If any required field cannot be found, return its value as null.
 - If the correct currency isn't clear, please assume it's in IDR.
@@ -121,46 +126,37 @@ Do not add any extra text or disclaimers.
     
     // Process the totalAmount and currencyCode if available.
     if (parsedData.currencyCode && parsedData.totalAmount) {
-      console.log('[PROCESSOR] Found currencyCode and totalAmount:', parsedData.currencyCode, parsedData.totalAmount);
       if (parsedData.currencyCode !== "IDR") {
         // Save the original currency code.
         parsedData.originalCurrencyCode = parsedData.currencyCode;
-        console.log('[PROCESSOR] Non-IDR detected. Original currencyCode saved:', parsedData.originalCurrencyCode);
         
         // Remove any currency sign and non-numeric characters except comma and period.
         let amountString = parsedData.totalAmount.replace(/[^0-9.,]/g, '');
-        console.log('[PROCESSOR] Cleaned totalAmount string:', amountString);
         
         // If a period exists, assume it is the decimal separator and remove thousand-separating commas.
         if (amountString.indexOf('.') !== -1) {
           amountString = amountString.replace(/,/g, '');
-          console.log('[PROCESSOR] Removed thousand-separating commas:', amountString);
         } else {
           // Otherwise, assume the comma is the decimal separator: replace it with a period for numeric conversion.
           amountString = amountString.replace(/,/g, '.');
-          console.log('[PROCESSOR] Converted comma to period for decimal conversion:', amountString);
         }
         
         const numericValue = parseFloat(amountString);
-        console.log('[PROCESSOR] Numeric value extracted:', numericValue);
         
-        // Convert the amount into IDR via the convertCurrency function.
-        const convertedValue = await convertCurrency(parsedData.currencyCode, "IDR", numericValue);
-        console.log('[PROCESSOR] Converted value in IDR:', convertedValue);
-        
-        // Format the converted value as "Rpxxx.xxx.xxx,00" according to PUEBI rules.
-        parsedData.totalAmount = formatRupiah(convertedValue);
-        console.log('[PROCESSOR] Formatted totalAmount in IDR:', parsedData.totalAmount);
-        
-        // Change the currency code to IDR.
-        parsedData.currencyCode = "IDR";
-        console.log('[PROCESSOR] Currency code updated to IDR.');
+        try {
+          // Attempt to convert using the Frankfurter API.
+          const convertedValue = await convertCurrency(parsedData.currencyCode, "IDR", numericValue);
+          parsedData.totalAmount = formatRupiah(convertedValue);
+          parsedData.currencyCode = "IDR";
+        } catch (error) {
+          console.warn('[PROCESSOR] Currency conversion failed, using original value:', error);
+          // If conversion fails, use the original numeric value formatted as fixed 2 decimals.
+          parsedData.totalAmount = numericValue.toFixed(2);
+        }
       } else {
         // If already in IDR, correctly parse and format the value.
         const numericValue = parseIDR(parsedData.totalAmount);
-        console.log('[PROCESSOR] Numeric value extracted from IDR:', numericValue);
         parsedData.totalAmount = formatRupiah(numericValue);
-        console.log('[PROCESSOR] Formatted totalAmount in IDR:', parsedData.totalAmount);
       }
     } else {
       console.log('[PROCESSOR] No totalAmount or currencyCode found in parsed data.');
