@@ -84,6 +84,7 @@ Instructions:
   - If the currency is IDR, format the value according to Indonesian PUEBI rules (e.g., Rp1.234.567,00).
   - If the currency is not IDR, remove thousand separators and any currency symbols to extract a clean numeric value.
 - "invoiceDate" and "dueDate" must be in dd/mm/yyyy format, for single digit case add "0" before the number for example: "1" to "01".
+- Extract the "invoiceDate" and "dueDate" from the invoice. If either date cannot be found, return a value of null and set the corresponding date to "00/00/0000". Additionally, if either date is present but formatted as "xx/xx/xxxx" (indicating missing or placeholder information), override it by setting the date to "00/00/0000" or in similar other cases.
 - Note that buyer-related details typically appear together in the invoice, meaning that these fields are located close to one another. In contrast, seller information—especially the company name—commonly appears at both the top and bottom of the invoice, though it may sometimes be grouped in a single section.
 - If any required field cannot be found, return its value as null.
 - If the correct currency isn't clear, please assume it's in IDR.
