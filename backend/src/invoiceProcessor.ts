@@ -1,5 +1,4 @@
 // invoiceProcessor.ts
-
 import callOCRAgent from './ocrAgent';
 import { convertCurrency } from './currencyRate';
 
@@ -12,7 +11,7 @@ function stripCodeBlocks(text: string): string {
 
 /**
  * Helper to format a number into Indonesian Rupiah (PUEBI rules)
- * with dot as thousand separators and a comma before the cents.
+ * with dot as thousand separators and a comma for decimals.
  * For example: "Rp1.234.567,00"
  */
 function formatRupiah(amount: number): string {
@@ -30,8 +29,7 @@ function formatRupiah(amount: number): string {
  */
 function parseIDR(amountStr: string): number {
   let cleaned = amountStr.replace(/Rp|\s/g, '');
-  cleaned = cleaned.replace(/\./g, '');
-  cleaned = cleaned.replace(/,/g, '.');
+  cleaned = cleaned.replace(/\./g, '').replace(/,/g, '.');
   console.log('[PARSE] Parsed IDR string to number:', cleaned);
   return parseFloat(cleaned);
 }
@@ -50,8 +48,9 @@ export async function processInvoiceImage(fileBuffer: Buffer, userCompany: strin
     const imageDataUrl = `data:image/jpeg;base64,${fileBuffer.toString('base64')}`;
 
     // Build the prompt text to extract invoice details.
-    const promptText = `
-Below is an invoice image. Extract the following fields and return valid JSON (no code blocks) with exactly these keys:
+    // Notice the updated instructions for totalAmount extraction.
+    const promptText = 
+`Below is an invoice image. Extract the following fields and return valid JSON (no code blocks) with exactly these keys:
 {
   "sellerName": ...,
   "sellerAddress": ...,
@@ -77,26 +76,21 @@ Invoice categorization:
 - Otherwise, set it to "Faktur masuk".
 
 Instructions:
-- Identify and return the 3-letter currency code present in the invoice into the "currencyCode".
-    -"currencyCode" should be in 3-letter currency in uppercase only.
-    -"Rp" is "IDR"
+- Extract the "totalAmount" as a plain numeric value without any thousand separators or currency symbols.
+  For example, if the invoice shows Rupiah as "Rp1.000.000" extract it as "1000000". 
+  If the invoice shows dollars as "9,999,999.99", extract it as "9999999,99" (using a comma as the decimal separator).
+- Extract the "currencyCode" as a 3-letter uppercase code representing the original currency.
 - For taxDetails:
-  - If a tax percentage is provided, output it in the format "10%".
+  - If a tax percentage is provided, output it in the format "10%" only.
   - If only a tax amount is provided, calculate the percentage as (tax amount / total amount * 100)% and append the "%" symbol.
   - If neither is provided, set taxDetails to null.
   - If there is more than 1 tax detail in a section, combine them into a single string.
-- For totalAmount:
-  - If the currency is IDR, format the value according to Indonesian PUEBI rules (e.g., Rp1.234.567,00).
-  - If the currency is not IDR, remove thousand separators and any currency symbols to extract a clean numeric value.
-- "invoiceDate" and "dueDate" must be in dd/mm/yyyy format, for single digit case add "0" before the number (e.g., "1" becomes "01").
-- Extract the "invoiceDate" and "dueDate" from the invoice. If either date cannot be found, return a value of null and set the corresponding date to "00/00/0000". Additionally, if either date is present but formatted as "xx/xx/xxxx" (indicating missing or placeholder information), override it by setting the date to "00/00/0000" or similar.
-- Note that buyer-related details typically appear together in the invoice, meaning that these fields are located close to one another. In contrast, seller information—especially the company name—commonly appears at both the top and bottom of the invoice, though it may sometimes be grouped in a single section.
-- If any required field cannot be found, return its value as null.
-- If the correct currency isn't clear, please assume it's in IDR.
-- The address should be in a single line of string with this format: "Street, City, Postal Code, Country".
-
-Do not add any extra text or disclaimers.
-    `;
+- For invoiceDate and dueDate:
+  - They must be in dd/mm/yyyy format with leading zeros for single digits.
+  - If not found or if placeholder data is found (e.g., "xx/xx/xxxx"), return "00/00/0000".
+- The address should be in a single line: "Street, City, Postal Code, Country".
+- Do not add any extra text or disclaimers.
+`;
 
     // Call the OCR Agent component with both text prompt and image input.
     const ocrResponse = await callOCRAgent({
@@ -124,40 +118,42 @@ Do not add any extra text or disclaimers.
       parsedData = { rawOCRAgentOutput: messageContent };
     }
     
-    // Process the totalAmount and currencyCode if available.
-    if (parsedData.currencyCode && parsedData.totalAmount) {
-      if (parsedData.currencyCode !== "IDR") {
-        // Save the original currency code.
-        parsedData.originalCurrencyCode = parsedData.currencyCode;
-        
-        // Remove any currency sign and non-numeric characters except comma and period.
-        let amountString = parsedData.totalAmount.replace(/[^0-9.,]/g, '');
-        
-        // If a period exists, assume it is the decimal separator and remove thousand-separating commas.
-        if (amountString.indexOf('.') !== -1) {
-          amountString = amountString.replace(/,/g, '');
-        } else {
-          // Otherwise, assume the comma is the decimal separator: replace it with a period for numeric conversion.
-          amountString = amountString.replace(/,/g, '.');
-        }
-        
-        const numericValue = parseFloat(amountString);
-        
-        try {
-          // Attempt to convert using the Frankfurter API.
-          const convertedValue = await convertCurrency(parsedData.currencyCode, "IDR", numericValue);
-          parsedData.totalAmount = formatRupiah(convertedValue);
-          parsedData.currencyCode = "IDR";
-        } catch (error) {
-          console.warn('[PROCESSOR] Currency conversion failed, using original value:', error);
-          // If conversion fails, use the original numeric value formatted as fixed 2 decimals.
-          parsedData.totalAmount = numericValue.toFixed(2);
-        }
+    // Process the totalAmount and create finalTotalAmount.
+    if (parsedData.currencyCode && parsedData.totalAmount !== undefined) {
+      // Convert totalAmount to a string to safely use replace.
+      let amountString = String(parsedData.totalAmount).replace(/[^0-9.,]/g, '');
+
+      let originalAmountNumeric: number;
+      if (parsedData.currencyCode === "IDR") {
+        // For IDR, assume thousand separator is dot and decimal separator is comma.
+        // Remove dots then replace comma with dot.
+        let cleaned = amountString.replace(/\./g, '').replace(/,/g, '.');
+        originalAmountNumeric = parseFloat(cleaned);
+        // Store original value as an integer string.
+        parsedData.totalAmount = Math.round(originalAmountNumeric).toString();
       } else {
-        // If already in IDR, correctly parse and format the value.
-        const numericValue = parseIDR(parsedData.totalAmount);
-        parsedData.totalAmount = formatRupiah(numericValue);
+        // For non-IDR, assume thousand separator is comma and decimal separator is period.
+        let cleaned = amountString.replace(/,/g, '');
+        originalAmountNumeric = parseFloat(cleaned);
+        // Store original value with two decimals and comma as the decimal separator.
+        parsedData.totalAmount = originalAmountNumeric.toFixed(2).replace('.', ',');
       }
+      
+      // Compute finalTotalAmount in IDR.
+      let finalAmountNumeric: number;
+      if (parsedData.currencyCode === "IDR") {
+        finalAmountNumeric = originalAmountNumeric;
+      } else {
+        try {
+          finalAmountNumeric = await convertCurrency(parsedData.currencyCode, "IDR", originalAmountNumeric);
+        } catch (error) {
+          console.warn('[PROCESSOR] Currency conversion failed, falling back to 1:1 conversion');
+          finalAmountNumeric = originalAmountNumeric;
+        }
+      }
+      // Rupiah are integer values.
+      finalAmountNumeric = Math.round(finalAmountNumeric);
+      parsedData.finalTotalAmount = finalAmountNumeric.toString();
     } else {
       console.log('[PROCESSOR] No totalAmount or currencyCode found in parsed data.');
     }

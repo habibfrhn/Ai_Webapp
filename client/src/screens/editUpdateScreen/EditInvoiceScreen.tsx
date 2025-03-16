@@ -20,6 +20,8 @@ export interface InvoiceData {
   dueDate?: string | null;
   taxDetails?: string | null;
   totalAmount?: string | null;
+  // NEW: Include currencyCode for proper type-checking.
+  currencyCode?: string;
   invoiceType?: 'Faktur masuk' | 'Faktur keluar' | '';
 }
 

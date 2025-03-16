@@ -20,9 +20,13 @@ export interface IInvoice {
   invoiceDate: string | null;
   dueDate: string | null;
   taxDetails: string | null;
+  // totalAmount stores the original uploaded currency amount as a plain numeric string
   totalAmount: string | null;
+  // finalTotalAmount stores the amount converted to IDR (or is identical if already in IDR)
+  finalTotalAmount: string | null;
+  // currencyCode stores the original 3-letter currency code in uppercase
   currencyCode: string;
-  originalCurrencyCode: string | null;
+
   invoiceType: 'Faktur masuk' | 'Faktur keluar' | null;
 
   fileName: string;
@@ -54,8 +58,8 @@ const invoiceSchema = new Schema<IInvoice>({
   dueDate: { type: String, default: null },
   taxDetails: { type: String, default: null },
   totalAmount: { type: String, default: null },
+  finalTotalAmount: { type: String, default: null },
   currencyCode: { type: String, required: true, match: /^[A-Z]{3}$/ },
-  originalCurrencyCode: { type: String, default: null },
 
   invoiceType: {
     type: String,
