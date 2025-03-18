@@ -85,11 +85,10 @@ async function startServer(): Promise<void> {
           originalFileName: string
         ) {
           const now = new Date();
-          // Save as draft invoice (createdAt contains both date and time).
+          // Save invoice record without the draft flag.
           const newInvoice = new InvoiceModel({
             ...processedData,
             userId: (req as any).userId,
-            draft: true,
             invoiceImages: invoiceImageBuffers,
             fileName: originalFileName,
             status: 'Belum diproses',
@@ -255,7 +254,7 @@ async function startServer(): Promise<void> {
       const { invoiceId, ...formData } = req.body;
       const updatedInvoice = await InvoiceModel.findOneAndUpdate(
         { _id: invoiceId, userId: (req as any).userId },
-        { ...formData, draft: false },
+        { ...formData },
         { new: true }
       );
       if (!updatedInvoice) {
@@ -274,7 +273,7 @@ async function startServer(): Promise<void> {
     try {
       const userId = (req as any).userId;
       const invoices = await InvoiceModel.find({ userId }).select(
-        'invoiceNumber buyerName invoiceDate dueDate invoiceType totalAmount buyerAddress buyerPhone buyerEmail sellerName draft'
+        'invoiceNumber buyerName invoiceDate dueDate invoiceType totalAmount buyerAddress buyerPhone buyerEmail sellerName status'
       );
       res.json({ success: true, invoices });
     } catch (err: any) {

@@ -26,7 +26,6 @@ export interface IInvoice {
   invoiceImages: Buffer[];
   createdAt: Date;
   status: 'Belum diproses' | 'Sedang diproses' | 'Telah diproses';
-  draft: boolean;
 }
 
 const invoiceSchema = new Schema<IInvoice>({
@@ -61,7 +60,6 @@ const invoiceSchema = new Schema<IInvoice>({
     enum: ['Belum diproses', 'Sedang diproses', 'Telah diproses'],
     default: 'Belum diproses',
   },
-  draft: { type: Boolean, default: true },
 }, { collection: 'invoices' });
 
 export const InvoiceModel = invoiceDB.model<IInvoice>('Invoice', invoiceSchema);

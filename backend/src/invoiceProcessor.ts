@@ -87,7 +87,7 @@ Instructions:
   - If there is more than 1 tax detail in a section, combine them into a single string.
 - For invoiceDate and dueDate:
   - They must be in dd/mm/yyyy format with leading zeros for single digits.
-  - If not found or if placeholder data is found (e.g., "xx/xx/xxxx"), return "00/00/0000".
+  - If not found or if placeholder data is found (e.g., "xx/xx/xxxx"), return null.
 - The address should be in a single line: "Street, City, Postal Code, Country".
 - Do not add any extra text or disclaimers.
 `;

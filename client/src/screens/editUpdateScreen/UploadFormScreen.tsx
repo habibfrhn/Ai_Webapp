@@ -81,16 +81,21 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
     isFinalized.current = true;
 
     const dateRegex = /^(\d{1,2}\/\d{1,2}\/\d{4})$/;
-    if (!dateRegex.test(formData.invoiceDate || '')) {
+    // Allow empty date values; otherwise, validate the format.
+    if (formData.invoiceDate !== '' && !dateRegex.test(formData.invoiceDate)) {
       alert('Please use dd/mm/yyyy format for Tanggal Faktur');
       return;
     }
-    if (!dateRegex.test(formData.dueDate || '')) {
+    if (formData.dueDate !== '' && !dateRegex.test(formData.dueDate)) {
       alert('Please use dd/mm/yyyy format for Tanggal Jatuh Tempo');
       return;
     }
 
+    // Prepare final data: if a date field is empty, set it to null.
     const finalData = { ...formData };
+    finalData.invoiceDate = formData.invoiceDate === '' ? null : formData.invoiceDate;
+    finalData.dueDate = formData.dueDate === '' ? null : formData.dueDate;
+
     if (formData.invoiceType === 'Faktur masuk') {
       finalData.buyerName = null;
       finalData.buyerAddress = null;
@@ -328,7 +333,7 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
               <input
                 type="text"
                 name="invoiceDate"
-                placeholder="dd/mm/yyyy"
+                placeholder="Tanggal invoice tidak tersedia"
                 value={formData.invoiceDate || ''}
                 onChange={handleChange}
                 className="w-full border p-1"
@@ -339,7 +344,7 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
               <input
                 type="text"
                 name="dueDate"
-                placeholder="dd/mm/yyyy"
+                placeholder="Tanggal jatuh tempo tidak tersedia"
                 value={formData.dueDate || ''}
                 onChange={handleChange}
                 className="w-full border p-1"
@@ -388,7 +393,7 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
 
         <div className="flex gap-2 mt-4">
           <button type="submit" className="px-3 py-1 bg-blue-600 text-white text-sm">
-            Upload faktur
+            Simpan Perubahan
           </button>
           <button
             type="button"

@@ -14,14 +14,13 @@ interface Invoice {
   buyerPhone?: string;
   buyerEmail?: string;
   sellerName?: string;
-  draft?: boolean;
 }
 
 const defaultColumns = [
   { key: 'invoiceNumber', label: 'Invoice Number' },
   { key: 'buyerName', label: 'Nama Pembeli' },
   { key: 'invoiceDate', label: 'Tanggal Faktur' },
-  { key: 'dueDate', label: 'Tanggal Jatuh Tempo' },
+  { key: 'dueDate', label: 'Tanggal Faktur' },
   { key: 'invoiceType', label: 'Tipe Faktur' },
   { key: 'totalAmount', label: 'Total Amount' },
 ];
@@ -198,15 +197,9 @@ const ListScreen = () => {
                 const cellContent = invoice[col.key as keyof Invoice] || 'N/A';
                 return col.key === 'invoiceNumber' ? (
                   <td key={col.key} className="border p-2">
-                    {invoice.draft ? (
-                      <Link to="/edit-invoice" state={{ invoiceId: invoice._id }}>
-                        {cellContent}
-                      </Link>
-                    ) : (
-                      <Link to={`/invoice/${invoice._id}`} className="text-blue-600 underline">
-                        {cellContent}
-                      </Link>
-                    )}
+                    <Link to="/edit-invoice" state={{ invoiceId: invoice._id }}>
+                      {cellContent}
+                    </Link>
                   </td>
                 ) : (
                   <td key={col.key} className="border p-2">
