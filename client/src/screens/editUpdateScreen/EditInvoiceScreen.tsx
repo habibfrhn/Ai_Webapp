@@ -1,6 +1,6 @@
 // EditInvoiceScreen.tsx
-import React from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useParams } from 'react-router-dom';
 import ImagePreviewScreen from './ImagePreviewScreen';
 import UploadFormScreen from './UploadFormScreen';
 
@@ -20,59 +20,82 @@ export interface InvoiceData {
   dueDate?: string | null;
   taxDetails?: string | null;
   totalAmount?: string | null;
-  // NEW: Include currencyCode for proper type-checking.
   currencyCode?: string;
   invoiceType?: 'Faktur masuk' | 'Faktur keluar' | '';
 }
 
-interface InvoiceStateSingle {
+interface LocationStateSingle {
   invoiceId: string;
-  extractedData: InvoiceData;
+  extractedData?: InvoiceData;
 }
 
-interface InvoiceStateMultiple {
+interface LocationStateMultiple {
   invoices: { invoiceId: string; extractedData: InvoiceData }[];
 }
 
-type LocationState = InvoiceStateSingle | InvoiceStateMultiple;
+type LocationStateType = LocationStateSingle | LocationStateMultiple | null;
 
 const EditInvoiceScreen: React.FC = () => {
-  const { state } = useLocation() as { state: LocationState };
+  const location = useLocation();
+  const { invoiceId: routeInvoiceId } = useParams<{ invoiceId: string }>();
+  const locationState = location.state as LocationStateType;
 
-  if ('invoices' in state && Array.isArray(state.invoices)) {
-    // Multiple invoices mode: render a list of invoice edit views.
-    return (
-      <div>
-        {state.invoices.map((invoice) => (
-          <div key={invoice.invoiceId} className="flex h-screen border-b">
-            {/* Left Panel */}
-            <div className="h-screen w-1/2 bg-[#f9fafb]">
-              <ImagePreviewScreen invoiceId={invoice.invoiceId} />
-            </div>
-            {/* Right Panel */}
-            <div className="flex-1">
-              <UploadFormScreen invoiceId={invoice.invoiceId} extractedData={invoice.extractedData} />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  } else {
-    // Single invoice mode.
-    const { invoiceId, extractedData } = state as InvoiceStateSingle;
-    return (
-      <div className="flex h-screen">
-        {/* Left Panel */}
-        <div className="h-screen w-1/2 bg-[#f9fafb]">
-          <ImagePreviewScreen invoiceId={invoiceId} />
-        </div>
-        {/* Right Panel */}
-        <div className="flex-1">
-          <UploadFormScreen invoiceId={invoiceId} extractedData={extractedData} />
-        </div>
-      </div>
-    );
+  const [invoiceId, setInvoiceId] = useState<string>('');
+  const [extractedData, setExtractedData] = useState<InvoiceData | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (locationState && 'invoiceId' in locationState && locationState.invoiceId) {
+      setInvoiceId(locationState.invoiceId);
+      if (locationState.extractedData) {
+        setExtractedData(locationState.extractedData);
+      } else {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        fetch(`http://localhost:3000/api/invoice/${locationState.invoiceId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.invoice) {
+              setExtractedData(data.invoice);
+            }
+          })
+          .catch(err => console.error('Failed to load invoice:', err))
+          .finally(() => setLoading(false));
+      }
+    } else if (routeInvoiceId) {
+      setInvoiceId(routeInvoiceId);
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      fetch(`http://localhost:3000/api/invoice/${routeInvoiceId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.invoice) {
+            setExtractedData(data.invoice);
+          }
+        })
+        .catch(err => console.error('Failed to load invoice:', err))
+        .finally(() => setLoading(false));
+    }
+  }, [locationState, routeInvoiceId]);
+
+  if (loading || !invoiceId || !extractedData) {
+    return <p>Loading invoice...</p>;
   }
+
+  return (
+    <div className="flex h-screen">
+      <div className="h-screen w-1/2 bg-[#f9fafb]">
+        <ImagePreviewScreen invoiceId={invoiceId} />
+      </div>
+      <div className="flex-1">
+        <UploadFormScreen invoiceId={invoiceId} extractedData={extractedData} />
+      </div>
+    </div>
+  );
 };
 
 export default EditInvoiceScreen;

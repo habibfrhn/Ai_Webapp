@@ -1,34 +1,52 @@
 // UploadScreen.tsx
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const UploadScreen = () => {
   const [status, setStatus] = useState('');
-  const [separateInvoices, setSeparateInvoices] = useState(false);
+  const [sameInvoice, setSameInvoice] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  // Append new files to the selectedFiles state
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const newFiles = Array.from(e.target.files);
+    setSelectedFiles(prev => [...prev, ...newFiles]);
+    // Clear input value to allow selecting the same file again if needed
+    e.target.value = '';
+  };
+
+  // Remove a file from the selectedFiles array by index
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setStatus('');
-    const form = e.currentTarget;
-    const fileInput = form.elements.namedItem('invoiceFile') as HTMLInputElement;
-    if (!fileInput.files || fileInput.files.length === 0) {
+
+    // Check your own state to ensure at least one file is selected
+    if (selectedFiles.length === 0) {
       setStatus('No file selected.');
       return;
     }
-    
+
     const allowedTypes = ["application/pdf", "image/png", "image/jpeg"];
     const formData = new FormData();
-    for (let i = 0; i < fileInput.files.length; i++) {
-      const file = fileInput.files[i];
+
+    for (const file of selectedFiles) {
       if (!allowedTypes.includes(file.type)) {
         setStatus("Unsupported file format detected. Please upload only PDF, PNG, or JPG files.");
         return;
       }
       formData.append('invoiceImage', file);
     }
-    // Append the grouping mode ("multiple" or "single")
-    formData.append('invoiceGrouping', separateInvoices ? 'multiple' : 'single');
+
+    // When sameInvoice is true, group files into a single invoice ("single")
+    // otherwise treat each file as a separate invoice ("multiple").
+    formData.append('invoiceGrouping', sameInvoice ? 'single' : 'multiple');
 
     const token = localStorage.getItem('token');
     try {
@@ -45,12 +63,8 @@ const UploadScreen = () => {
       const data = await response.json();
       if (data.success) {
         setStatus('Upload successful.');
-        // Redirect based on response type.
-        if (data.invoices) {
-          navigate('/edit-invoice', { state: { invoices: data.invoices } });
-        } else {
-          navigate('/edit-invoice', { state: { invoiceId: data.invoiceId, extractedData: data.extractedData } });
-        }
+        // Redirect to beranda (home) after successful upload.
+        navigate('/');
       } else {
         setStatus(`Server error: ${data.message}`);
       }
@@ -68,20 +82,42 @@ const UploadScreen = () => {
           name="invoiceFile"
           accept="application/pdf, image/png, image/jpeg"
           multiple
-          required
+          ref={fileInputRef}
+          onChange={handleFileChange}
           className="mb-4"
         />
+        {selectedFiles.length > 0 && (
+          <div className="mb-4">
+            <h3 className="font-semibold">Selected Files:</h3>
+            <ul>
+              {selectedFiles.map((file, index) => (
+                <li key={index} className="flex items-center justify-between">
+                  <span>{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(index)}
+                    className="text-red-500 ml-2"
+                  >
+                    X
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="mb-4">
           <label>
             <input
               type="checkbox"
-              checked={separateInvoices}
-              onChange={(e) => setSeparateInvoices(e.target.checked)}
+              checked={sameInvoice}
+              onChange={(e) => setSameInvoice(e.target.checked)}
             />
-            {' '}Each file belongs to a separate invoice
+            {' '}Each file belongs to the same invoice
           </label>
         </div>
-        <button type="submit" className="px-4 py-2 bg-blue-600 text-white">Upload</button>
+        <button type="submit" className="px-4 py-2 bg-blue-600 text-white">
+          Upload
+        </button>
       </form>
       {status && <div className="mt-2">{status}</div>}
     </div>

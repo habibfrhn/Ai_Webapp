@@ -1,9 +1,7 @@
-// client/src/App.tsx
+// App.tsx
 import { Routes, Route } from 'react-router-dom';
-import { useEffect } from 'react';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
-import { apiFetch } from './apiClient';
 
 import HomeScreen from './screens/homeScreen';
 import ListScreen from './screens/ListScreen';
@@ -16,23 +14,6 @@ import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 
 function App() {
-  // Cleanup temporary invoices on app start.
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      apiFetch('http://localhost:3000/api/invoice/temp/cleanup-all', {
-        method: 'DELETE',
-      })
-        .then((res) => res.json())
-        .then((result) => {
-          console.info('Initial cleanup:', result.message);
-        })
-        .catch((error) => {
-          console.error('Initial cleanup error:', error);
-        });
-    }
-  }, []);
-
   return (
     <Layout>
       <Routes>

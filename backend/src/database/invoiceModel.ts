@@ -35,7 +35,7 @@ export interface IInvoice {
   createdAt: Date;
   createdTime: string;
   status: 'Belum diproses' | 'Sedang diproses' | 'Telah diproses';
-  temporary: boolean;
+  draft: boolean;
 }
 
 const invoiceSchema = new Schema<IInvoice>({
@@ -77,7 +77,7 @@ const invoiceSchema = new Schema<IInvoice>({
     enum: ['Belum diproses', 'Sedang diproses', 'Telah diproses'],
     default: 'Belum diproses',
   },
-  temporary: { type: Boolean, default: true },
+  draft: { type: Boolean, default: true },
 });
 
 export const InvoiceModel = model<IInvoice>('Invoice', invoiceSchema);

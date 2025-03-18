@@ -1,13 +1,11 @@
 // UploadFormScreen.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { InvoiceData } from './EditInvoiceScreen';
 
 interface InvoiceFormData extends InvoiceData {
   status: 'Belum diproses' | 'Sedang diproses' | 'Telah diproses';
-  // currencyCode stores the 3-letter original currency code
   currencyCode: string;
-  // totalAmount is the original amount stored as a plain numeric string
   totalAmount: string;
 }
 
@@ -36,53 +34,27 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
     totalAmount: extractedData?.totalAmount || '',
     invoiceType: extractedData?.invoiceType || 'Faktur masuk',
     status: 'Belum diproses',
-    // Use the currencyCode from extractedData or default to "IDR"
     currencyCode: extractedData?.currencyCode || 'IDR',
   });
 
-  // Ref to track if the form was finalized (submitted or cancelled)
   const isFinalized = useRef(false);
 
-  // Trigger cleanup via sendBeacon if the user leaves without finalizing.
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (!isFinalized.current) {
-        const token = localStorage.getItem('token');
-        if (token) {
-          const url = 'http://localhost:3000/api/invoice/temp/cleanup-all';
-          const data = JSON.stringify({});
-          navigator.sendBeacon(url, data);
-        }
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
-
-  // Helper: Format the stored totalAmount for display based on currency.
   const formatAmountDisplay = (amount: string, currencyCode: string): string => {
     if (!amount) return '';
-    // Convert to number (replace comma with dot)
     const numeric = parseFloat(amount.replace(',', '.'));
     if (currencyCode === 'USD') {
-      // For dollars: use comma as thousand separator and period for decimals.
       return numeric.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     } else {
-      // For IDR (or others): use dot as thousand separator and comma for decimals.
       return numeric.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
   };
 
-  // Helper: Parse the displayed amount back to a plain numeric string.
   const parseDisplayAmount = (display: string, currencyCode: string): string => {
     if (currencyCode === 'USD') {
-      // Remove commas; then convert to a number and format with two decimals, replacing '.' with ','.
       const normalized = display.replace(/,/g, '');
       const num = parseFloat(normalized);
       return num.toFixed(2).replace('.', ',');
     } else {
-      // For IDR, remove dots and commas and return an integer.
       const normalized = display.replace(/\./g, '').replace(/,/g, '');
       const num = parseFloat(normalized);
       return Math.round(num).toString();
@@ -91,7 +63,6 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    // For currencyCode, force uppercase and limit to 3 characters.
     if (name === 'currencyCode') {
       setFormData(prev => ({ ...prev, [name]: value.toUpperCase().slice(0, 3) }));
     } else {
@@ -100,9 +71,7 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
   };
 
   const handleTotalAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // When the user changes the total amount field, update state with the raw input.
     const input = e.target.value;
-    // Remove common formatting characters.
     const raw = input.replace(/[.,]/g, '');
     setFormData(prev => ({ ...prev, totalAmount: raw }));
   };
@@ -121,9 +90,6 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
       return;
     }
 
-    // Remove irrelevant fields based on invoice type.
-    // If it's Faktur masuk, we keep seller info and nullify buyer info.
-    // If it's Faktur keluar, we keep buyer info and nullify seller info.
     const finalData = { ...formData };
     if (formData.invoiceType === 'Faktur masuk') {
       finalData.buyerName = null;
@@ -139,7 +105,6 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
       finalData.sellerTaxId = null;
     }
 
-    // Before submission, parse the displayed totalAmount to ensure plain format.
     finalData.totalAmount = parseDisplayAmount(formData.totalAmount, formData.currencyCode);
 
     const token = localStorage.getItem('token');
@@ -177,19 +142,8 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
     }
   };
 
-  const handleCancel = async () => {
+  const handleCancel = () => {
     isFinalized.current = true;
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        await fetch('http://localhost:3000/api/invoice/temp/cleanup-all', {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch (error) {
-        console.error('Cleanup error on cancel:', error);
-      }
-    }
     navigate('/invoices');
   };
 
@@ -197,8 +151,6 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
     <div className="p-4 text-sm" style={{ outline: 'none' }}>
       <h2 className="text-lg font-bold mb-2">DATA FAKTUR BARU</h2>
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-        
-        {/* Top Row: Tipe Faktur & Status */}
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="block font-semibold">Tipe Faktur</label>
@@ -227,10 +179,8 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
           </div>
         </div>
 
-        {/* Spacer */}
         <div className="mt-2"></div>
 
-        {/* Informasi Penjual / Pembeli Section */}
         {formData.invoiceType === 'Faktur masuk' ? (
           <div>
             <h3 className="text-md font-bold mb-2">Informasi Penjual</h3>
@@ -355,14 +305,10 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
           </div>
         )}
 
-        {/* Spacer */}
         <div className="mt-2"></div>
 
-        {/* Informasi Faktur Section */}
         <div>
           <h3 className="text-md font-bold mb-2">Informasi Faktur</h3>
-
-          {/* Nomor Faktur */}
           <div className="grid grid-cols-1 gap-2">
             <div>
               <label className="block font-semibold">Nomor Faktur</label>
@@ -376,8 +322,6 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
               />
             </div>
           </div>
-
-          {/* Tanggal Faktur & Tanggal Jatuh Tempo */}
           <div className="grid grid-cols-2 gap-2 mt-2">
             <div>
               <label className="block font-semibold">Tanggal Faktur (dd/mm/yyyy)</label>
@@ -402,8 +346,6 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
               />
             </div>
           </div>
-
-          {/* Rincian Pajak */}
           <div className="grid grid-cols-1 gap-2 mt-2">
             <div>
               <label className="block font-semibold">Rincian Pajak</label>
@@ -417,8 +359,6 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
               />
             </div>
           </div>
-
-          {/* Kode Mata Uang & Jumlah Total */}
           <div className="grid grid-cols-2 gap-2 mt-2">
             <div>
               <label className="block font-semibold">Kode Mata Uang</label>
@@ -446,7 +386,6 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
           </div>
         </div>
 
-        {/* Buttons */}
         <div className="flex gap-2 mt-4">
           <button type="submit" className="px-3 py-1 bg-blue-600 text-white text-sm">
             Upload faktur

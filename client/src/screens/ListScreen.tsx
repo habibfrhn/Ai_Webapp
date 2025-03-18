@@ -1,4 +1,6 @@
+// ListScreen.tsx
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
 interface Invoice {
   _id: string;
@@ -12,6 +14,7 @@ interface Invoice {
   buyerPhone?: string;
   buyerEmail?: string;
   sellerName?: string;
+  draft?: boolean;
 }
 
 const defaultColumns = [
@@ -43,12 +46,10 @@ const ListScreen = () => {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (resp) => {
-        // If the server returns an error status, throw before parsing JSON
         if (!resp.ok) {
           const errorText = await resp.text();
           throw new Error(`Server error: ${resp.status} ${errorText}`);
         }
-        // Attempt to parse JSON. If parsing fails, capture the raw text for debugging
         try {
           return await resp.json();
         } catch {
@@ -197,9 +198,15 @@ const ListScreen = () => {
                 const cellContent = invoice[col.key as keyof Invoice] || 'N/A';
                 return col.key === 'invoiceNumber' ? (
                   <td key={col.key} className="border p-2">
-                    <a href={`/invoice/${invoice._id}`} className="text-blue-600 underline">
-                      {cellContent}
-                    </a>
+                    {invoice.draft ? (
+                      <Link to="/edit-invoice" state={{ invoiceId: invoice._id }}>
+                        {cellContent}
+                      </Link>
+                    ) : (
+                      <Link to={`/invoice/${invoice._id}`} className="text-blue-600 underline">
+                        {cellContent}
+                      </Link>
+                    )}
                   </td>
                 ) : (
                   <td key={col.key} className="border p-2">

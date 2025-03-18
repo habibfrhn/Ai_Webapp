@@ -12,7 +12,6 @@ import authRoutes from './authentication/authRoutes';
 import { processInvoiceImage } from './invoiceProcessor';
 import { UserModel } from './database/userModel';
 import { InvoiceModel } from './database/invoiceModel';
-import { cleanupTempInvoices } from './database/tempCleanup';
 import { convertPDFToImages } from './pdfConverter';
 import { optimizeImage } from './imageOptimizer';
 
@@ -53,7 +52,7 @@ async function startServer(): Promise<void> {
   const storage = multer.memoryStorage();
   const upload = multer({ storage });
 
-  // Updated Invoice upload route to support multiple images and grouping mode.
+  // Invoice upload route supporting both single and multiple files.
   app.post(
     '/api/invoice/upload',
     authenticate,
@@ -68,7 +67,8 @@ async function startServer(): Promise<void> {
           return;
         }
 
-        // Check grouping mode: "multiple" means separate invoices; default is single invoice.
+        // "multiple" means each file is a separate invoice;
+        // "single" means all files belong to the same invoice.
         const invoiceGrouping = req.body.invoiceGrouping === 'multiple' ? 'multiple' : 'single';
 
         const user = await UserModel.findById((req as any).userId);
@@ -88,36 +88,47 @@ async function startServer(): Promise<void> {
           const hh = String(now.getHours()).padStart(2, '0');
           const mm = String(now.getMinutes()).padStart(2, '0');
           const createdTime = `${hh}:${mm}`;
+          // Save as draft invoice.
           const newInvoice = new InvoiceModel({
             ...processedData,
             userId: (req as any).userId,
-            temporary: true,
+            draft: true,
             invoiceImages: invoiceImageBuffers,
             fileName: originalFileName,
             status: 'Belum diproses',
             createdTime,
+            createdAt: now,
           });
           await newInvoice.save();
           return newInvoice;
         }
 
         if (invoiceGrouping === 'single') {
-          // All files belong to one invoice.
-          let invoiceImageBuffers: Buffer[] = [];
-          let extractionBuffer: Buffer;
+          // ------------------------------------------------
+          // --- Single Invoice Mode: concurrency-limited ---
+          // ------------------------------------------------
+          // If the user uploads multiple images, process them with concurrency=4.
+          // PDFs remain handled as before.
 
-          // If a PDF is uploaded, we expect only one file.
+          // Check if it's a single PDF file
           if (files.length === 1 && files[0].mimetype === 'application/pdf') {
+            // PDF scenario: same as before
             const file = files[0];
             const tempFilePath = path.join(os.tmpdir(), `${Date.now()}-${file.originalname}`);
             fs.writeFileSync(tempFilePath, file.buffer);
             console.log("Temporary PDF file created at:", tempFilePath);
+
+            let invoiceImageBuffers: Buffer[] = [];
+            let extractionBuffer: Buffer;
+
             try {
               const imageBuffers = await convertPDFToImages(tempFilePath);
               if (imageBuffers.length === 0) {
                 throw new Error("PDF conversion returned no images");
               }
               extractionBuffer = await optimizeImage(imageBuffers[0]);
+              // If desired, you can limit concurrency here as well,
+              // but for simplicity, we'll just do them in parallel.
               invoiceImageBuffers = await Promise.all(
                 imageBuffers.map(async (buf) => await optimizeImage(buf))
               );
@@ -133,35 +144,71 @@ async function startServer(): Promise<void> {
                 console.error("Error cleaning up temporary file:", e);
               }
             }
+
+            const result = await processInvoiceImage(extractionBuffer, userCompany);
+            if (!result.success) {
+              console.error('[SERVER] Invoice processing failed:', result.message);
+              res.status(500).json({ success: false, message: result.message });
+              return;
+            }
+
+            const newInvoice = await createInvoiceRecord(result.data, invoiceImageBuffers, file.originalname);
+            res.json({
+              success: true,
+              invoiceId: newInvoice._id,
+              extractedData: result.data,
+            });
           } else {
-            // For multiple image files, optimize each and use the first for OCR extraction.
-            invoiceImageBuffers = await Promise.all(
-              files.map(async (file) => {
-                if (!['image/png', 'image/jpeg'].includes(file.mimetype)) {
-                  throw new Error('Unsupported file format in single invoice mode.');
-                }
-                return await optimizeImage(file.buffer);
-              })
-            );
-            extractionBuffer = invoiceImageBuffers[0];
-          }
+            // Multiple images in single-invoice mode (or a single image).
+            // We'll do concurrency-limited processing (max 4 at a time).
 
-          const result = await processInvoiceImage(extractionBuffer, userCompany);
-          if (!result.success) {
-            console.error('[SERVER] Invoice processing failed:', result.message);
-            res.status(500).json({ success: false, message: result.message });
-            return;
-          }
+            // Validate all are images
+            for (const file of files) {
+              if (!['image/png', 'image/jpeg'].includes(file.mimetype)) {
+                throw new Error('Unsupported file format in single invoice mode.');
+              }
+            }
 
-          const newInvoice = await createInvoiceRecord(result.data, invoiceImageBuffers, files[0].originalname);
-          res.json({
-            success: true,
-            invoiceId: newInvoice._id,
-            extractedData: result.data,
-          });
+            // Concurrency-limited optimization
+            const concurrency = 4;
+            let invoiceImageBuffers: Buffer[] = [];
+
+            // Process in chunks of size=concurrency
+            for (let i = 0; i < files.length; i += concurrency) {
+              const chunk = files.slice(i, i + concurrency);
+              const optimizedChunk = await Promise.all(
+                chunk.map(async (file) => optimizeImage(file.buffer))
+              );
+              invoiceImageBuffers.push(...optimizedChunk);
+            }
+
+            // The first image is used for OCR extraction
+            const extractionBuffer = invoiceImageBuffers[0];
+
+            const result = await processInvoiceImage(extractionBuffer, userCompany);
+            if (!result.success) {
+              console.error('[SERVER] Invoice processing failed:', result.message);
+              res.status(500).json({ success: false, message: result.message });
+              return;
+            }
+
+            const newInvoice = await createInvoiceRecord(result.data, invoiceImageBuffers, files[0].originalname);
+            res.json({
+              success: true,
+              invoiceId: newInvoice._id,
+              extractedData: result.data,
+            });
+          }
         } else {
-          // "multiple" mode: each file is processed as a separate invoice.
+          // ---------------------------------------------------
+          // --- Multiple Invoices Mode: process sequentially ---
+          // ---------------------------------------------------
+          // We handle each file in sequence so the OCR Agent
+          // doesn't receive multiple files at once.
+
           let invoicesArray: any[] = [];
+
+          // The "for...of" loop + "await" ensures each file is handled in sequence
           for (const file of files) {
             const allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg'];
             if (!allowedMimeTypes.includes(file.mimetype)) {
@@ -202,6 +249,7 @@ async function startServer(): Promise<void> {
               invoiceImageBuffers = [optimizedBuffer];
             }
 
+            // OCR processing for this single file
             const result = await processInvoiceImage(extractionBuffer, userCompany);
             if (!result.success) {
               console.error('[SERVER] Invoice processing failed for file', file.originalname, result.message);
@@ -229,14 +277,14 @@ async function startServer(): Promise<void> {
     }
   );
 
-  // Other endpoints remain unchanged.
+  // Save endpoint to finalize invoice (mark draft as false).
   app.post('/api/invoice/save', authenticate, async (req: Request, res: Response): Promise<void> => {
     console.log('[SERVER] /api/invoice/save called');
     try {
       const { invoiceId, ...formData } = req.body;
       const updatedInvoice = await InvoiceModel.findByIdAndUpdate(
         invoiceId,
-        { ...formData, temporary: false },
+        { ...formData, draft: false },
         { new: true }
       );
       if (!updatedInvoice) {
@@ -251,56 +299,12 @@ async function startServer(): Promise<void> {
     }
   });
 
-  app.get('/api/invoice/temp/:id/image', authenticate, async (req: Request, res: Response): Promise<void> => {
-    try {
-      const invoice = await InvoiceModel.findById(req.params.id);
-      if (!invoice || !invoice.invoiceImages || invoice.invoiceImages.length === 0) {
-        res.status(404).send('Image not found');
-        return;
-      }
-      let page = parseInt(req.query.page as string, 10);
-      if (isNaN(page) || page < 0 || page >= invoice.invoiceImages.length) {
-        page = 0;
-      }
-      res.set('Content-Type', 'image/jpeg');
-      res.send(invoice.invoiceImages[page]);
-      return;
-    } catch (err: any) {
-      res.status(500).send(err.message);
-    }
-  });
-
-  app.delete('/api/invoice/temp/cleanup-all', authenticate, async (req: Request, res: Response): Promise<void> => {
-    try {
-      const userId = (req as any).userId;
-      const count = await cleanupTempInvoices(userId);
-      res.json({ success: true, message: `${count} temporary invoices cleaned up successfully.` });
-    } catch (err: any) {
-      console.error('[SERVER] Cleanup endpoint error:', err);
-      res.status(500).json({ success: false, message: err.message });
-    }
-  });
-
-  app.delete('/api/invoice/temp/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
-    try {
-      const invoiceId = req.params.id;
-      const invoice = await InvoiceModel.findOneAndDelete({ _id: invoiceId, temporary: true });
-      if (!invoice) {
-        res.status(404).json({ success: false, message: 'Temporary invoice not found' });
-        return;
-      }
-      res.json({ success: true, message: 'Temporary invoice deleted successfully' });
-      return;
-    } catch (err: any) {
-      res.status(500).json({ success: false, message: err.message });
-    }
-  });
-
+  // List endpoint: returns all invoices for the user.
   app.get('/api/invoice/list', authenticate, async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = (req as any).userId;
-      const invoices = await InvoiceModel.find({ userId, temporary: false }).select(
-        'invoiceNumber buyerName invoiceDate dueDate invoiceType totalAmount buyerAddress buyerPhone buyerEmail sellerName currencyCode'
+      const invoices = await InvoiceModel.find({ userId }).select(
+        'invoiceNumber buyerName invoiceDate dueDate invoiceType totalAmount buyerAddress buyerPhone buyerEmail sellerName draft'
       );
       res.json({ success: true, invoices });
       return;
@@ -309,7 +313,8 @@ async function startServer(): Promise<void> {
     }
   });
 
-  app.get('/api/invoice/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
+  // Single invoice endpoint (with ObjectId validation).
+  app.get('/api/invoice/:id([0-9a-fA-F]{24})', authenticate, async (req: Request, res: Response): Promise<void> => {
     try {
       const invoiceId = req.params.id;
       const invoice = await InvoiceModel.findById(invoiceId);
@@ -324,6 +329,26 @@ async function startServer(): Promise<void> {
     }
   });
 
+  // Endpoint to serve invoice images.
+  app.get('/api/invoice/image/:id([0-9a-fA-F]{24})', authenticate, async (req: Request, res: Response): Promise<void> => {
+    try {
+      const invoice = await InvoiceModel.findById(req.params.id);
+      if (!invoice || !invoice.invoiceImages || invoice.invoiceImages.length === 0) {
+        res.status(404).send('Image not found');
+        return;
+      }
+      let page = parseInt(req.query.page as string, 10);
+      if (isNaN(page) || page < 0 || page >= invoice.invoiceImages.length) {
+        page = 0;
+      }
+      res.set('Content-Type', 'image/jpeg');
+      res.send(invoice.invoiceImages[page]);
+    } catch (err: any) {
+      res.status(500).send(err.message);
+    }
+  });
+
+  // Delete endpoints.
   app.delete('/api/invoice/:id', authenticate, async (req: Request, res: Response): Promise<void> => {
     try {
       const invoiceId = req.params.id;

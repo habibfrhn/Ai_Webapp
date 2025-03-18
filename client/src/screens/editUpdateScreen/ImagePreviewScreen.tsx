@@ -1,3 +1,4 @@
+// ImagePreviewScreen.tsx
 import React, { useState, useRef, useEffect } from 'react';
 
 interface ImagePreviewScreenProps {
@@ -43,7 +44,8 @@ const ImagePreviewScreen: React.FC<ImagePreviewScreenProps> = ({ invoiceId }) =>
     if (!token) return;
     setLoading(true);
     let objectUrl: string | null = null;
-    fetch(`http://localhost:3000/api/invoice/temp/${invoiceId}/image?page=${currentPage}`, {
+    // Updated endpoint to use /api/invoice/image/:id instead of the old temp endpoint.
+    fetch(`http://localhost:3000/api/invoice/image/${invoiceId}?page=${currentPage}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(response => {
@@ -69,7 +71,6 @@ const ImagePreviewScreen: React.FC<ImagePreviewScreenProps> = ({ invoiceId }) =>
     };
   }, [invoiceId, currentPage, token]);
 
-  // Calculate the initial scale and translation once the image loads.
   const handleImageLoad = () => {
     if (!imgContainerRef.current || !imgRef.current) return;
     const containerRect = imgContainerRef.current.getBoundingClientRect();
@@ -86,7 +87,6 @@ const ImagePreviewScreen: React.FC<ImagePreviewScreenProps> = ({ invoiceId }) =>
     setTranslate({ x: offsetX, y: offsetY });
   };
 
-  // Handlers for dragging the image.
   const handleMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -106,14 +106,12 @@ const ImagePreviewScreen: React.FC<ImagePreviewScreenProps> = ({ invoiceId }) =>
     setDragging(false);
   };
 
-  // Zoom in/out with mouse wheel.
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
     setScale(prev => Math.max(0.5, prev + delta));
   };
 
-  // Navigation functions.
   const goToPrevious = () => {
     setCurrentPage(prev => Math.max(prev - 1, 0));
   };
