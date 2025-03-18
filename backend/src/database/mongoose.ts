@@ -1,18 +1,30 @@
-// ===============================
-// backend/src/database/mongoose.ts (FULL UPDATED CODE)
-// ===============================
+// database/mongoose.ts
 import 'dotenv/config';
 import mongoose from 'mongoose';
 
-const MONGO_URI = process.env.MONGO_URI as string;
+const MONGO_AUTH_URI = process.env.MONGO_AUTH_URI;
+const MONGO_INVOICE_URI = process.env.MONGO_INVOICE_URI;
 
+if (!MONGO_AUTH_URI || !MONGO_INVOICE_URI) {
+  console.error("Missing MongoDB connection URIs in .env");
+  process.exit(1);
+}
+
+// Create separate connections
+export const authDB = mongoose.createConnection(MONGO_AUTH_URI);
+export const invoiceDB = mongoose.createConnection(MONGO_INVOICE_URI);
+
+// Wait for both connections to be established
 export async function connectDB(): Promise<void> {
-  console.log('[DB] Attempting to connect to MongoDB at:', MONGO_URI);
-  try {
-    await mongoose.connect(MONGO_URI);
-    console.log('[DB] Connected to MongoDB:', MONGO_URI);
-  } catch (err) {
-    console.error('[DB] Connection error:', err);
-    process.exit(1);
-  }
+  console.log('[DB] Connecting to Auth and Invoice databases...');
+  const authPromise = new Promise((resolve, reject) => {
+    authDB.once('open', resolve);
+    authDB.on('error', reject);
+  });
+  const invoicePromise = new Promise((resolve, reject) => {
+    invoiceDB.once('open', resolve);
+    invoiceDB.on('error', reject);
+  });
+  await Promise.all([authPromise, invoicePromise]);
+  console.log('[DB] Connected to both Auth and Invoice databases.');
 }

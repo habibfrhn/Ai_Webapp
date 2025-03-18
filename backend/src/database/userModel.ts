@@ -1,7 +1,6 @@
-// ===============================
-// backend/src/database/userModel.ts (FULL UPDATED CODE)
-// ===============================
-import { Schema, model } from 'mongoose';
+// database/userModel.ts
+import { Schema } from 'mongoose';
+import { authDB } from './mongoose';
 
 export interface IUserDoc {
   email: string;
@@ -18,4 +17,4 @@ const userSchema = new Schema<IUserDoc>(
   { collection: 'users' }
 );
 
-export const UserModel = model<IUserDoc>('User', userSchema);
+export const UserModel = authDB.model<IUserDoc>('User', userSchema);
