@@ -1,4 +1,3 @@
-// UploadFormScreen.tsx
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { InvoiceData } from './EditInvoiceScreen';
@@ -61,7 +60,9 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     if (name === 'currencyCode') {
       setFormData(prev => ({ ...prev, [name]: value.toUpperCase().slice(0, 3) }));
@@ -81,12 +82,12 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
     isFinalized.current = true;
 
     const dateRegex = /^(\d{1,2}\/\d{1,2}\/\d{4})$/;
-    // Allow empty date values; otherwise, validate the format.
-    if (formData.invoiceDate !== '' && !dateRegex.test(formData.invoiceDate)) {
+    // Validate date fields only if they are non-empty.
+    if (formData.invoiceDate !== '' && !dateRegex.test(formData.invoiceDate ?? '')) {
       alert('Please use dd/mm/yyyy format for Tanggal Faktur');
       return;
     }
-    if (formData.dueDate !== '' && !dateRegex.test(formData.dueDate)) {
+    if (formData.dueDate !== '' && !dateRegex.test(formData.dueDate ?? '')) {
       alert('Please use dd/mm/yyyy format for Tanggal Jatuh Tempo');
       return;
     }
@@ -333,7 +334,7 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
               <input
                 type="text"
                 name="invoiceDate"
-                placeholder="Tanggal invoice tidak tersedia"
+                placeholder="dd/mm/yyyy"
                 value={formData.invoiceDate || ''}
                 onChange={handleChange}
                 className="w-full border p-1"
@@ -344,7 +345,7 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
               <input
                 type="text"
                 name="dueDate"
-                placeholder="Tanggal jatuh tempo tidak tersedia"
+                placeholder="dd/mm/yyyy"
                 value={formData.dueDate || ''}
                 onChange={handleChange}
                 className="w-full border p-1"
@@ -393,7 +394,7 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
 
         <div className="flex gap-2 mt-4">
           <button type="submit" className="px-3 py-1 bg-blue-600 text-white text-sm">
-            Simpan Perubahan
+            Simpan perubahan
           </button>
           <button
             type="button"
