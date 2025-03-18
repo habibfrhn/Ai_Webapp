@@ -45,6 +45,7 @@ const EditInvoiceScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // If invoice data was passed in location state, use that
     if (locationState && 'invoiceId' in locationState && locationState.invoiceId) {
       setInvoiceId(locationState.invoiceId);
       if (locationState.extractedData) {
@@ -64,7 +65,9 @@ const EditInvoiceScreen: React.FC = () => {
           .catch(err => console.error('Failed to load invoice:', err))
           .finally(() => setLoading(false));
       }
-    } else if (routeInvoiceId) {
+    } 
+    // Otherwise, if route param is used (e.g., /invoice/:invoiceId)
+    else if (routeInvoiceId) {
       setInvoiceId(routeInvoiceId);
       setLoading(true);
       const token = localStorage.getItem('token');
@@ -87,8 +90,8 @@ const EditInvoiceScreen: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen">
-      <div className="h-screen w-1/2 bg-[#f9fafb]">
+    <div className="flex">
+      <div className="w-1/2 bg-[#f9fafb]">
         <ImagePreviewScreen invoiceId={invoiceId} />
       </div>
       <div className="flex-1">

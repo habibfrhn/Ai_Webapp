@@ -1,3 +1,4 @@
+// Layout.tsx
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { TbHome, TbFileInvoice, TbUsers, TbHistory } from 'react-icons/tb';
 import { FiLogOut } from 'react-icons/fi';
@@ -15,7 +16,7 @@ const Layout = ({ children }: LayoutProps) => {
     navigate('/login');
   };
 
-  // Check if current route matches link
+  // Helper to highlight active link
   const isActive = (path: string) => location.pathname === path;
 
   const navItemClasses = (active: boolean) =>
@@ -24,15 +25,13 @@ const Layout = ({ children }: LayoutProps) => {
     }`;
 
   return (
-    <div className="flex">
-      {/* Sidebar with even padding */}
-      <aside className="w-64 h-screen bg-white text-black fixed top-0 left-0 flex flex-col p-4">
-        {/* Header styled as drawer header */}
+    // Make a two-column flex layout
+    <div className="flex min-h-screen">
+      <aside className="w-64 bg-white text-black flex flex-col p-4">
         <div className="flex items-center gap-3 mb-4">
           <TbHome className="w-6 h-6" />
           <h3 className="text-xl font-semibold">Ai_Webapp</h3>
         </div>
-        {/* Navigation links */}
         <div className="flex-grow">
           <ul className="menu p-0">
             <li className="mb-2">
@@ -60,20 +59,20 @@ const Layout = ({ children }: LayoutProps) => {
               </Link>
             </li>
             <li className="mb-2">
-              <a
+              <button
                 onClick={handleLogout}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-red-600 hover:bg-gray-100 cursor-pointer"
+                className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-red-600 hover:bg-gray-100"
               >
                 <FiLogOut className="text-xl" />
                 <span>Sign out</span>
-              </a>
+              </button>
             </li>
           </ul>
         </div>
       </aside>
 
-      {/* Main content area */}
-      <main className="ml-64" style={{ background: 'none' }}>
+      {/* The main content will fill remaining space */}
+      <main className="flex-1" style={{ background: 'none' }}>
         {children}
       </main>
     </div>
