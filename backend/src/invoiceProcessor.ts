@@ -76,9 +76,7 @@ Invoice categorization:
 - Otherwise, set it to "Faktur masuk".
 
 Instructions:
-- Extract the "totalAmount" as a plain numeric value without any thousand separators or currency symbols.
-  For example, if the invoice shows Rupiah as "Rp1.000.000" extract it as "1000000". 
-  If the invoice shows dollars as "9,999,999.99", extract it as "9999999,99" (using a comma as the decimal separator).
+- Extract the totalAmount as a numeric string that retains the currency's standard formatting. Retain the thousand and decimal separators while removing the currency symbol. For example, if the invoice shows "Rp1.000.000", return "1.000.000". If the invoice shows "$9,999,999.99", return "9,999,999.99". In case there is a written mistake in the invoice, correct it to the proper format.
 - Extract the "currencyCode" as a 3-letter uppercase code representing the original currency.
 - For taxDetails:
   - If a tax percentage is provided, output it in the format "10%" only.

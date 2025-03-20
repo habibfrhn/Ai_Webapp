@@ -13,6 +13,7 @@ interface Invoice {
   totalAmount?: string;
   status: string;
   createdAt: string;
+  dueDate?: string; // New field for due date
 }
 
 const PAGE_SIZE = 4;
@@ -26,7 +27,7 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
 
-  // Helper to format the total amount similarly to UploadFormScreen
+  // Helper to format the total amount
   const formatAmount = (amount: string | undefined, currencyCode: string | undefined): string => {
     if (!amount || !currencyCode) return '';
     const numeric = parseFloat(amount.replace(',', '.'));
@@ -55,7 +56,7 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
         {title} ({invoiceCount})
       </h2>
 
-      {/* Invoice list container with a fixed height of 220px */}
+      {/* Invoice list container with fixed height */}
       <ul className="flex-grow h-[220px] space-y-1">
         {invoiceCount === 0 ? (
           <li className="py-1 text-center text-[10px] text-gray-600">
@@ -64,7 +65,7 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
         ) : (
           <>
             {currentInvoices.map((inv) => {
-              // Determine partner name
+              // Determine partner name based on invoice type
               const partnerName =
                 inv.invoiceType === 'Faktur masuk'
                   ? inv.sellerName
@@ -104,7 +105,7 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
         )}
       </ul>
 
-      {/* Pagination stays at the bottom */}
+      {/* Pagination */}
       <div className="mt-auto h-8 flex justify-between items-center text-sm">
         <button
           disabled={page === 1 || invoiceCount === 0}
@@ -123,6 +124,73 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
         >
           Next
         </button>
+      </div>
+    </div>
+  );
+};
+
+// New component for "Faktur hampir jatuh tempo"
+const DueSoonCard: React.FC<{ invoices: Invoice[] }> = ({ invoices }) => {
+  // Filter invoices that have a dueDate defined.
+  // (Adjust the filter if your condition for “doesn't have faktur status” differs.)
+  const dueSoonInvoices = invoices.filter(inv => inv.dueDate);
+  // Sort by due date ascending (earliest due date first)
+  const sortedInvoices = [...dueSoonInvoices].sort(
+    (a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime()
+  );
+
+  // Helper to format due dates
+  const formatDueDate = (dueDate: string): string => {
+    const date = new Date(dueDate);
+    return date.toLocaleDateString();
+  };
+
+  // Reuse formatAmount from above
+  const formatAmount = (amount: string | undefined, currencyCode: string | undefined): string => {
+    if (!amount || !currencyCode) return '';
+    const numeric = parseFloat(amount.replace(',', '.'));
+    if (currencyCode.toUpperCase() === 'USD') {
+      return numeric.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else {
+      return numeric.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+  };
+
+  return (
+    <div className="bg-white p-4 shadow rounded mt-4">
+      <h2 className="mb-2 text-sm">Faktur hampir jatuh tempo</h2>
+      <div className="space-y-1">
+        {sortedInvoices.length === 0 ? (
+          <div className="py-1 text-center text-[10px] text-gray-600">
+            Tidak ada faktur hampir jatuh tempo
+          </div>
+        ) : (
+          sortedInvoices.map(inv => {
+            // Determine partner name based on invoice type
+            const partnerName =
+              inv.invoiceType === 'Faktur masuk'
+                ? inv.sellerName
+                : inv.invoiceType === 'Faktur keluar'
+                ? inv.buyerName
+                : 'N/A';
+
+            return (
+              <div
+                key={inv._id}
+                className="flex items-center justify-between p-2 hover:bg-gray-200 cursor-pointer text-xs"
+              >
+                <div className="w-1/6">{inv.invoiceNumber || 'No Invoice Number'}</div>
+                <div className="w-1/6">{partnerName || 'N/A'}</div>
+                <div className="w-1/6">{inv.dueDate ? formatDueDate(inv.dueDate) : 'N/A'}</div>
+                <div className="w-1/6">{inv.status}</div>
+                <div className="w-1/6">{inv.invoiceType}</div>
+                <div className="w-1/6">
+                  {inv.currencyCode} {formatAmount(inv.totalAmount, inv.currencyCode)}
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );
@@ -164,7 +232,7 @@ const HomeScreen = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  // Separate the invoices by status
+  // Separate the invoices by status for the three main cards
   const belumDiproses = invoices.filter((inv) => inv.status === 'Belum diproses');
   const sedangDiproses = invoices.filter((inv) => inv.status === 'Sedang diproses');
   const sudahDiproses = invoices.filter((inv) => inv.status === 'Telah diproses');
@@ -190,12 +258,15 @@ const HomeScreen = () => {
         </button>
       </div>
 
-      {/* Three columns, each uses the same InvoiceCard structure */}
+      {/* Three invoice cards in a row */}
       <div className="flex space-x-4">
         <InvoiceCard title="Belum diproses" invoices={belumDiproses} />
         <InvoiceCard title="Sedang diproses" invoices={sedangDiproses} />
         <InvoiceCard title="Sudah diproses" invoices={sudahDiproses} />
       </div>
+
+      {/* New Due Soon/Faktur hampir jatuh tempo card */}
+      <DueSoonCard invoices={invoices} />
     </div>
   );
 };
