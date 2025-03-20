@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { theme } from '../theme';
+import { FaPlus } from 'react-icons/fa';
 
 interface Invoice {
   _id: string;
@@ -29,7 +30,6 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
   const formatAmount = (amount: string | undefined, currencyCode: string | undefined): string => {
     if (!amount || !currencyCode) return '';
     const numeric = parseFloat(amount.replace(',', '.'));
-    // If USD, use US formatting; else assume IDR-style formatting
     if (currencyCode.toUpperCase() === 'USD') {
       return numeric.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     } else {
@@ -44,20 +44,19 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
   const invoiceCount = sortedInvoices.length;
   const totalPages = invoiceCount > 0 ? Math.ceil(invoiceCount / PAGE_SIZE) : 1;
   const startIndex = (page - 1) * PAGE_SIZE;
-  const currentInvoices =
-    invoiceCount > 0 ? sortedInvoices.slice(startIndex, startIndex + PAGE_SIZE) : [];
+  const currentInvoices = invoiceCount > 0 ? sortedInvoices.slice(startIndex, startIndex + PAGE_SIZE) : [];
   // For spacing if fewer than PAGE_SIZE items on the last page
   const placeholders = invoiceCount > 0 ? Array.from({ length: PAGE_SIZE - currentInvoices.length }) : [];
 
   return (
-    <div className="bg-white p-4 shadow rounded flex-1 text-xs">
+    <div className="bg-white p-4 shadow rounded flex-1 text-xs flex flex-col">
       {/* Title */}
       <h2 className="mb-2 text-sm">
         {title} ({invoiceCount})
       </h2>
 
-      {/* Invoice list */}
-      <ul className="min-h-[200px] space-y-1">
+      {/* Invoice list container with a fixed height of 220px */}
+      <ul className="flex-grow h-[220px] space-y-1">
         {invoiceCount === 0 ? (
           <li className="py-1 text-center text-[10px] text-gray-600">
             Tidak ada faktur tersedia
@@ -105,8 +104,8 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
         )}
       </ul>
 
-      {/* Pagination */}
-      <div className="mt-1 h-8 flex justify-between items-center text-sm">
+      {/* Pagination stays at the bottom */}
+      <div className="mt-auto h-8 flex justify-between items-center text-sm">
         <button
           disabled={page === 1 || invoiceCount === 0}
           onClick={() => setPage(page - 1)}
@@ -182,12 +181,12 @@ const HomeScreen = () => {
   return (
     <div style={{ background: theme.background, minHeight: '100vh' }} className="p-4">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-bold">Beranda</h1>
+        <h2 className="text-2xl text-gray-700">Beranda</h2>
         <button
           onClick={() => navigate('/upload')}
-          className="bg-blue-600 text-white px-4 py-2 rounded"
+          className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2"
         >
-          Upload faktur
+          <FaPlus /> Upload Faktur
         </button>
       </div>
 
