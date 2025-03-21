@@ -13,7 +13,7 @@ interface Invoice {
   totalAmount?: string;
   status: string;
   createdAt: string;
-  dueDate?: string; // New field for due date
+  dueDate?: string;
 }
 
 const PAGE_SIZE = 4;
@@ -27,27 +27,18 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
 
-  // Helper to format the total amount
-  const formatAmount = (amount: string | undefined, currencyCode: string | undefined): string => {
-    if (!amount || !currencyCode) return '';
-    const numeric = parseFloat(amount.replace(',', '.'));
-    if (currencyCode.toUpperCase() === 'USD') {
-      return numeric.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    } else {
-      return numeric.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-  };
-
-  // Sort invoices by createdAt descending (latest first)
+  // Sorting invoices by createdAt descending (latest first)
   const sortedInvoices = [...invoices].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
   const invoiceCount = sortedInvoices.length;
   const totalPages = invoiceCount > 0 ? Math.ceil(invoiceCount / PAGE_SIZE) : 1;
   const startIndex = (page - 1) * PAGE_SIZE;
-  const currentInvoices = invoiceCount > 0 ? sortedInvoices.slice(startIndex, startIndex + PAGE_SIZE) : [];
+  const currentInvoices =
+    invoiceCount > 0 ? sortedInvoices.slice(startIndex, startIndex + PAGE_SIZE) : [];
   // For spacing if fewer than PAGE_SIZE items on the last page
-  const placeholders = invoiceCount > 0 ? Array.from({ length: PAGE_SIZE - currentInvoices.length }) : [];
+  const placeholders =
+    invoiceCount > 0 ? Array.from({ length: PAGE_SIZE - currentInvoices.length }) : [];
 
   return (
     <div className="bg-white p-4 shadow rounded flex-1 text-xs flex flex-col">
@@ -57,7 +48,7 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
       </h2>
 
       {/* Invoice list container with fixed height */}
-      <ul className="flex-grow h-[220px] space-y-1">
+      <ul className="h-[220px] space-y-1">
         {invoiceCount === 0 ? (
           <li className="py-1 text-center text-[10px] text-gray-600">
             Tidak ada faktur tersedia
@@ -79,13 +70,13 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
                   onClick={() => navigate('/edit-invoice', { state: { invoiceId: inv._id } })}
                   className="cursor-pointer hover:bg-gray-200 p-2"
                 >
-                  {/* First row: invoice number + currency & total */}
+                  {/* First row: invoice number (bold) + currency & raw total amount */}
                   <div className="flex justify-between">
                     <span className="font-bold text-sm">
                       {inv.invoiceNumber || 'No Invoice Number'}
                     </span>
                     <span className="text-sm">
-                      {inv.currencyCode} {formatAmount(inv.totalAmount, inv.currencyCode)}
+                      {inv.currencyCode} {inv.totalAmount}
                     </span>
                   </div>
                   {/* Second row: partner name + invoice type */}
@@ -110,7 +101,9 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
         <button
           disabled={page === 1 || invoiceCount === 0}
           onClick={() => setPage(page - 1)}
-          className={`px-2 py-1 rounded ${page === 1 || invoiceCount === 0 ? 'text-gray-400' : 'text-black'}`}
+          className={`px-2 py-1 rounded ${
+            page === 1 || invoiceCount === 0 ? 'text-gray-400' : 'text-black'
+          }`}
         >
           Prev
         </button>
@@ -120,7 +113,9 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
         <button
           disabled={page === totalPages || invoiceCount === 0}
           onClick={() => setPage(page + 1)}
-          className={`px-2 py-1 rounded ${page === totalPages || invoiceCount === 0 ? 'text-gray-400' : 'text-black'}`}
+          className={`px-2 py-1 rounded ${
+            page === totalPages || invoiceCount === 0 ? 'text-gray-400' : 'text-black'
+          }`}
         >
           Next
         </button>
@@ -129,15 +124,35 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
   );
 };
 
-// New component for "Faktur hampir jatuh tempo"
 const DueSoonCard: React.FC<{ invoices: Invoice[] }> = ({ invoices }) => {
-  // Filter invoices that have a dueDate defined.
-  // (Adjust the filter if your condition for “doesn't have faktur status” differs.)
-  const dueSoonInvoices = invoices.filter(inv => inv.dueDate);
-  // Sort by due date ascending (earliest due date first)
+  const navigate = useNavigate();
+  const PAGE_SIZE_RECT = 6; // Maximum of 6 invoices per page
+  const [page, setPage] = useState(1);
+
+  // Filter invoices with a defined dueDate, excluding "Telah diproses".
+  // Also, show invoices if the due date is in the future or if overdue with status "Belum diproses" or "Sedang diproses".
+  const dueSoonInvoices = invoices.filter((inv) => {
+    if (!inv.dueDate) return false;
+    if (inv.status === 'Telah diproses') return false;
+    const dueDate = new Date(inv.dueDate);
+    const now = new Date();
+    if (dueDate >= now) return true;
+    if (dueDate < now && (inv.status === 'Belum diproses' || inv.status === 'Sedang diproses')) return true;
+    return false;
+  });
+
+  // Sort by due date ascending (nearest due date first)
   const sortedInvoices = [...dueSoonInvoices].sort(
     (a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime()
   );
+
+  const invoiceCount = sortedInvoices.length;
+  const totalPages = invoiceCount > 0 ? Math.ceil(invoiceCount / PAGE_SIZE_RECT) : 1;
+  const startIndex = (page - 1) * PAGE_SIZE_RECT;
+  const currentInvoices =
+    invoiceCount > 0 ? sortedInvoices.slice(startIndex, startIndex + PAGE_SIZE_RECT) : [];
+  const placeholders =
+    invoiceCount > 0 ? Array.from({ length: PAGE_SIZE_RECT - currentInvoices.length }) : [];
 
   // Helper to format due dates
   const formatDueDate = (dueDate: string): string => {
@@ -145,52 +160,79 @@ const DueSoonCard: React.FC<{ invoices: Invoice[] }> = ({ invoices }) => {
     return date.toLocaleDateString();
   };
 
-  // Reuse formatAmount from above
-  const formatAmount = (amount: string | undefined, currencyCode: string | undefined): string => {
-    if (!amount || !currencyCode) return '';
-    const numeric = parseFloat(amount.replace(',', '.'));
-    if (currencyCode.toUpperCase() === 'USD') {
-      return numeric.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    } else {
-      return numeric.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-  };
-
   return (
-    <div className="bg-white p-4 shadow rounded mt-4">
-      <h2 className="mb-2 text-sm">Faktur hampir jatuh tempo</h2>
-      <div className="space-y-1">
-        {sortedInvoices.length === 0 ? (
+    <div className="bg-white p-4 shadow rounded mt-4 flex flex-col text-xs">
+      {/* Card header */}
+      <h2 className="mb-2 text-sm">
+        Faktur hampir jatuh tempo ({invoiceCount})
+      </h2>
+      {/* Invoice list container with fixed height for 6 invoice rows */}
+      <div className="h-[220px] space-y-1">
+        {invoiceCount === 0 ? (
           <div className="py-1 text-center text-[10px] text-gray-600">
             Tidak ada faktur hampir jatuh tempo
           </div>
         ) : (
-          sortedInvoices.map(inv => {
-            // Determine partner name based on invoice type
-            const partnerName =
-              inv.invoiceType === 'Faktur masuk'
-                ? inv.sellerName
-                : inv.invoiceType === 'Faktur keluar'
-                ? inv.buyerName
-                : 'N/A';
+          <>
+            {currentInvoices.map((inv) => {
+              const partnerName =
+                inv.invoiceType === 'Faktur masuk'
+                  ? inv.sellerName
+                  : inv.invoiceType === 'Faktur keluar'
+                  ? inv.buyerName
+                  : 'N/A';
 
-            return (
-              <div
-                key={inv._id}
-                className="flex items-center justify-between p-2 hover:bg-gray-200 cursor-pointer text-xs"
-              >
-                <div className="w-1/6">{inv.invoiceNumber || 'No Invoice Number'}</div>
-                <div className="w-1/6">{partnerName || 'N/A'}</div>
-                <div className="w-1/6">{inv.dueDate ? formatDueDate(inv.dueDate) : 'N/A'}</div>
-                <div className="w-1/6">{inv.status}</div>
-                <div className="w-1/6">{inv.invoiceType}</div>
-                <div className="w-1/6">
-                  {inv.currencyCode} {formatAmount(inv.totalAmount, inv.currencyCode)}
+              return (
+                <div
+                  key={inv._id}
+                  onClick={() => navigate('/edit-invoice', { state: { invoiceId: inv._id } })}
+                  className="flex items-center justify-between p-2 hover:bg-gray-200 cursor-pointer"
+                >
+                  {/* Bold invoice number */}
+                  <div className="w-1/6 font-bold">
+                    {inv.invoiceNumber || 'No Invoice Number'}
+                  </div>
+                  <div className="w-1/6">{partnerName || 'N/A'}</div>
+                  <div className="w-1/6">
+                    {inv.dueDate ? formatDueDate(inv.dueDate) : 'N/A'}
+                  </div>
+                  <div className="w-1/6">{inv.status}</div>
+                  <div className="w-1/6">{inv.invoiceType}</div>
+                  <div className="w-1/6">
+                    {inv.currencyCode} {inv.totalAmount}
+                  </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+            {placeholders.map((_, index) => (
+              <div key={`placeholder-${index}`} className="py-1"></div>
+            ))}
+          </>
         )}
+      </div>
+      {/* Pagination controls */}
+      <div className="mt-auto h-8 flex justify-between items-center text-sm">
+        <button
+          disabled={page === 1 || invoiceCount === 0}
+          onClick={() => setPage(page - 1)}
+          className={`px-2 py-1 rounded ${
+            page === 1 || invoiceCount === 0 ? 'text-gray-400' : 'text-black'
+          }`}
+        >
+          Prev
+        </button>
+        <span>
+          Halaman {invoiceCount === 0 ? 0 : page} dari {invoiceCount === 0 ? 0 : totalPages}
+        </span>
+        <button
+          disabled={page === totalPages || invoiceCount === 0}
+          onClick={() => setPage(page + 1)}
+          className={`px-2 py-1 rounded ${
+            page === totalPages || invoiceCount === 0 ? 'text-gray-400' : 'text-black'
+          }`}
+        >
+          Next
+        </button>
       </div>
     </div>
   );
@@ -232,7 +274,7 @@ const HomeScreen = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  // Separate the invoices by status for the three main cards
+  // Separate invoices by status for the three main cards
   const belumDiproses = invoices.filter((inv) => inv.status === 'Belum diproses');
   const sedangDiproses = invoices.filter((inv) => inv.status === 'Sedang diproses');
   const sudahDiproses = invoices.filter((inv) => inv.status === 'Telah diproses');
@@ -265,7 +307,7 @@ const HomeScreen = () => {
         <InvoiceCard title="Sudah diproses" invoices={sudahDiproses} />
       </div>
 
-      {/* New Due Soon/Faktur hampir jatuh tempo card */}
+      {/* Rectangle card: Faktur hampir jatuh tempo with max 6 invoices per page */}
       <DueSoonCard invoices={invoices} />
     </div>
   );

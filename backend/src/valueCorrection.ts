@@ -5,7 +5,7 @@ export async function correctTotalAmount(totalAmount: string, currencyCode: stri
   const promptText = `Correct the formatting of the totalAmount value.
 Ensure that the value "${totalAmount}" for currency ${currencyCode} is written in the standard format for that currency.
 Return a valid JSON object with exactly one key "totalAmount" whose value is the corrected string.
-Do not alter the numerical value, only adjust the formatting.
+Do not alter the numerical value, only adjust the formatting. Don't include any currency symbols like "$" or "€" or something similar or abreviation like "Rp".
 If the input is already in the correct format, return it as is in the JSON.`;
 
   try {

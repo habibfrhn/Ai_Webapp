@@ -75,13 +75,13 @@ Invoice categorization:
 - Otherwise, set it to "Faktur masuk".
 
 Instructions:
-- Extract the totalAmount as a numeric string that retains the currency's standard formatting. Retain the thousand and decimal separators while removing the currency symbol. For example, if the invoice shows "Rp1.000.000", return "1.000.000". If the invoice shows "$9,999,999.99", return "9,999,999.99". In case there is a written mistake in the invoice, correct it to the proper format.
+- Extract the totalAmount as a numeric string that retains the currency's standard formatting. Retain the thousand and decimal separators while removing the currency symbol. For example, if the invoice shows "Rp1.000.000", return "1.000.000". If the invoice shows "$9,999,999.99", return "9,999,999.99". In case there is a written mistake in the invoice, correct it to the proper format. Don't include any currency symbols like "$" or "€" or something similar or abreviation like "Rp".
 - Extract the "currencyCode" as a 3-letter uppercase code representing the original currency.
 - For taxDetails:
-  - If a tax percentage is provided, output it in the format "10%" only.
+  - If a tax percentage is provided, output it in the format percentage format only (e.g., "10%").
   - If only a tax amount is provided, calculate the percentage as (tax amount / total amount * 100)% and append the "%" symbol.
   - If neither is provided, set taxDetails to null.
-  - If there is more than 1 tax detail in a section, combine them into a single string.
+  - If there is more than 1 tax detail in a section, combine them into a single string, only the percentage.
 - For invoiceDate and dueDate:
   - They must be in dd/mm/yyyy format with leading zeros for single digits.
   - If not found or if placeholder data is found (e.g., "xx/xx/xxxx"), return null.
