@@ -126,7 +126,7 @@ const InvoiceCard: React.FC<InvoiceCardProps> = ({ title, invoices }) => {
 
 const DueSoonCard: React.FC<{ invoices: Invoice[] }> = ({ invoices }) => {
   const navigate = useNavigate();
-  const PAGE_SIZE_RECT = 6; // Maximum of 6 invoices per page
+  const PAGE_SIZE_RECT = 5; // Maximum of 6 invoices per page
   const [page, setPage] = useState(1);
 
   // Helper function to parse date strings (handles "dd/mm/yyyy" format)
@@ -179,15 +179,15 @@ const DueSoonCard: React.FC<{ invoices: Invoice[] }> = ({ invoices }) => {
   };
 
   return (
-    <div className="bg-white p-4 shadow rounded mt-4 flex flex-col text-xs">
+    <div className="bg-white p-4 shadow rounded mt-4 flex flex-col text-sm">
       {/* Card header */}
       <h2 className="mb-2 text-sm">
         Faktur hampir jatuh tempo ({invoiceCount})
       </h2>
       {/* Invoice list container with fixed height for 6 invoice rows */}
-      <div className="h-[220px] space-y-1">
+      <div className="h-[210px] space-y-1">
         {invoiceCount === 0 ? (
-          <div className="py-1 text-center text-[10px] text-gray-600">
+          <div className="py-1 text-center text-sm text-gray-600">
             Tidak ada faktur hampir jatuh tempo
           </div>
         ) : (
