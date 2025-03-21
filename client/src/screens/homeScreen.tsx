@@ -129,21 +129,36 @@ const DueSoonCard: React.FC<{ invoices: Invoice[] }> = ({ invoices }) => {
   const PAGE_SIZE_RECT = 6; // Maximum of 6 invoices per page
   const [page, setPage] = useState(1);
 
+  // Helper function to parse date strings (handles "dd/mm/yyyy" format)
+  const parseDueDate = (dateStr: string): Date => {
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+        const year = parseInt(parts[2], 10);
+        return new Date(year, month, day);
+      }
+    }
+    return new Date(dateStr);
+  };
+
   // Filter invoices with a defined dueDate, excluding "Telah diproses".
   // Also, show invoices if the due date is in the future or if overdue with status "Belum diproses" or "Sedang diproses".
   const dueSoonInvoices = invoices.filter((inv) => {
     if (!inv.dueDate) return false;
     if (inv.status === 'Telah diproses') return false;
-    const dueDate = new Date(inv.dueDate);
+    const dueDate = parseDueDate(inv.dueDate);
     const now = new Date();
     if (dueDate >= now) return true;
-    if (dueDate < now && (inv.status === 'Belum diproses' || inv.status === 'Sedang diproses')) return true;
+    if (dueDate < now && (inv.status === 'Belum diproses' || inv.status === 'Sedang diproses'))
+      return true;
     return false;
   });
 
-  // Sort by due date ascending (nearest due date first)
+  // Sort by due date ascending (nearest due date first) using the custom parser
   const sortedInvoices = [...dueSoonInvoices].sort(
-    (a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime()
+    (a, b) => parseDueDate(a.dueDate!).getTime() - parseDueDate(b.dueDate!).getTime()
   );
 
   const invoiceCount = sortedInvoices.length;
@@ -154,10 +169,13 @@ const DueSoonCard: React.FC<{ invoices: Invoice[] }> = ({ invoices }) => {
   const placeholders =
     invoiceCount > 0 ? Array.from({ length: PAGE_SIZE_RECT - currentInvoices.length }) : [];
 
-  // Helper to format due dates
+  // Format due date explicitly to "DD/MM/YYYY"
   const formatDueDate = (dueDate: string): string => {
-    const date = new Date(dueDate);
-    return date.toLocaleDateString();
+    const date = parseDueDate(dueDate);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
   };
 
   return (
