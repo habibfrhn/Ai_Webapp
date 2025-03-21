@@ -48,7 +48,6 @@ export async function processInvoiceImage(fileBuffer: Buffer, userCompany: strin
     const imageDataUrl = `data:image/jpeg;base64,${fileBuffer.toString('base64')}`;
 
     // Build the prompt text to extract invoice details.
-    // Notice the updated instructions for totalAmount extraction.
     const promptText = 
 `Below is an invoice image. Extract the following fields and return valid JSON (no code blocks) with exactly these keys:
 {
@@ -118,24 +117,14 @@ Instructions:
     
     // Process the totalAmount and create finalTotalAmount.
     if (parsedData.currencyCode && parsedData.totalAmount !== undefined) {
-      // Convert totalAmount to a string to safely use replace.
+      // Remove any formatting logic: keep totalAmount exactly as extracted.
+      // However, extract a numeric value for conversion to IDR.
       let amountString = String(parsedData.totalAmount).replace(/[^0-9.,]/g, '');
-
-      let originalAmountNumeric: number;
-      if (parsedData.currencyCode === "IDR") {
-        // For IDR, assume thousand separator is dot and decimal separator is comma.
-        // Remove dots then replace comma with dot.
-        let cleaned = amountString.replace(/\./g, '').replace(/,/g, '.');
-        originalAmountNumeric = parseFloat(cleaned);
-        // Store original value as an integer string.
-        parsedData.totalAmount = Math.round(originalAmountNumeric).toString();
-      } else {
-        // For non-IDR, assume thousand separator is comma and decimal separator is period.
-        let cleaned = amountString.replace(/,/g, '');
-        originalAmountNumeric = parseFloat(cleaned);
-        // Store original value with two decimals and comma as the decimal separator.
-        parsedData.totalAmount = originalAmountNumeric.toFixed(2).replace('.', ',');
+      let originalAmountNumeric = parseFloat(amountString.replace(/,/g, ''));
+      if (isNaN(originalAmountNumeric)) {
+        originalAmountNumeric = 0;
       }
+      // Do not modify parsedData.totalAmount; it will be stored exactly as returned by the OCR Agent.
       
       // Compute finalTotalAmount in IDR.
       let finalAmountNumeric: number;

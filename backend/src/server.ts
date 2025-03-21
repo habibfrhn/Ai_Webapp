@@ -1,4 +1,3 @@
-// server.ts
 import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
@@ -14,6 +13,7 @@ import { UserModel } from './database/userModel';
 import { InvoiceModel } from './database/invoiceModel';
 import { convertPDFToImages } from './pdfConverter';
 import { optimizeImage } from './imageOptimizer';
+import { correctTotalAmount } from './valueCorrection'; // new import
 
 const JWT_SECRET = process.env.JWT_SECRET || 'YOUR_SECRET_KEY';
 
@@ -247,11 +247,25 @@ async function startServer(): Promise<void> {
     }
   );
 
-  // Save endpoint to finalize invoice
+  // Save endpoint to finalize invoice with value correction
   app.post('/api/invoice/save', authenticate, async (req: Request, res: Response): Promise<void> => {
     console.log('[SERVER] /api/invoice/save called');
     try {
       const { invoiceId, ...formData } = req.body;
+
+      // If totalAmount is provided and non-empty, attempt value correction.
+      if (formData.totalAmount && formData.totalAmount.trim() !== '') {
+        if (formData.currencyCode) {
+          try {
+            formData.totalAmount = await correctTotalAmount(formData.totalAmount, formData.currencyCode);
+          } catch (error) {
+            console.warn('[SERVER] Total amount correction failed:', error);
+          }
+        }
+      } else {
+        formData.totalAmount = null;
+      }
+
       const updatedInvoice = await InvoiceModel.findOneAndUpdate(
         { _id: invoiceId, userId: (req as any).userId },
         { ...formData },

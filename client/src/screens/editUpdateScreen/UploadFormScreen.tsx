@@ -38,28 +38,6 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
 
   const isFinalized = useRef(false);
 
-  const formatAmountDisplay = (amount: string, currencyCode: string): string => {
-    if (!amount) return '';
-    const numeric = parseFloat(amount.replace(',', '.'));
-    if (currencyCode === 'USD') {
-      return numeric.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    } else {
-      return numeric.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-  };
-
-  const parseDisplayAmount = (display: string, currencyCode: string): string => {
-    if (currencyCode === 'USD') {
-      const normalized = display.replace(/,/g, '');
-      const num = parseFloat(normalized);
-      return num.toFixed(2).replace('.', ',');
-    } else {
-      const normalized = display.replace(/\./g, '').replace(/,/g, '');
-      const num = parseFloat(normalized);
-      return Math.round(num).toString();
-    }
-  };
-
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -69,12 +47,6 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
-  };
-
-  const handleTotalAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target.value;
-    const raw = input.replace(/[.,]/g, '');
-    setFormData(prev => ({ ...prev, totalAmount: raw }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -111,7 +83,8 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
       finalData.sellerTaxId = null;
     }
 
-    finalData.totalAmount = parseDisplayAmount(formData.totalAmount, formData.currencyCode);
+    // totalAmount is left as is. If empty, backend will store null.
+    // No additional formatting is applied on the client side.
 
     const token = localStorage.getItem('token');
     if (!token) {
@@ -384,8 +357,8 @@ const UploadFormScreen: React.FC<UploadFormScreenProps> = ({ invoiceId, extracte
                 type="text"
                 name="totalAmount"
                 placeholder="Total Pembayaran"
-                value={formatAmountDisplay(formData.totalAmount, formData.currencyCode)}
-                onChange={handleTotalAmountChange}
+                value={formData.totalAmount || ''}
+                onChange={handleChange}
                 className="w-full border p-1"
               />
             </div>
